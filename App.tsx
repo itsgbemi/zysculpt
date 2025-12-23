@@ -18,9 +18,9 @@ const App: React.FC = () => {
       case AppView.RESUME_BUILDER:
         return <AIResumeBuilder onToggleMobile={toggleMobileSidebar} />;
       case AppView.FIND_JOB:
-        return <JobSearch />;
+        return <JobSearch onToggleMobile={toggleMobileSidebar} />;
       case AppView.SETTINGS:
-        return <Settings />;
+        return <Settings onToggleMobile={toggleMobileSidebar} />;
       default:
         return <AIResumeBuilder onToggleMobile={toggleMobileSidebar} />;
     }
