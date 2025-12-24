@@ -21,7 +21,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
           <button onClick={onToggleMobile} className="md:hidden">
             <Menu size={24} className={textPrimary} />
           </button>
-          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Account & Settings</h2>
+          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Settings</h2>
         </div>
       </header>
 
@@ -29,7 +29,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
         <div className="space-y-10 pb-12">
           {/* User Profile Section */}
           <section>
-            <h2 className={sectionTitle}>Profile Intelligence</h2>
+            <h2 className={sectionTitle}>Personal Information</h2>
             <div className={`p-6 md:p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${cardBg}`}>
               <div className="flex items-center gap-6">
                 <div className={`w-20 h-20 md:w-24 md:h-24 rounded-3xl flex items-center justify-center border-2 transition-all ${
@@ -38,36 +38,36 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
                   <User size={40} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h3 className={`text-xl md:text-2xl font-bold ${textPrimary}`}>Professional User</h3>
-                  <p className={`${textSecondary} mb-2`}>Senior Product Designer</p>
+                  <h3 className={`text-xl md:text-2xl font-bold ${textPrimary}`}>Demo User</h3>
+                  <p className={`${textSecondary} mb-2`}>Senior Professional</p>
                   <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
                   }`}>
-                    <CheckCircle size={12} /> Verified Profile
+                    <CheckCircle size={12} /> Account Active
                   </div>
                 </div>
               </div>
               <button className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm ${
                 theme === 'dark' ? 'bg-white text-black hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}>
-                Edit Public Profile
+                Edit Profile
               </button>
             </div>
           </section>
 
           {/* Subscription Section */}
           <section>
-            <h2 className={sectionTitle}>Plan & Billing</h2>
+            <h2 className={sectionTitle}>Billing & Plan</h2>
             <div className={`p-8 rounded-3xl border-2 border-dashed relative overflow-hidden transition-all ${
               theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-white border-indigo-100'
             }`}>
               <div className="absolute top-0 right-0 p-4">
-                 <div className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded-lg rotate-12">BEST VALUE</div>
+                 <div className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded-lg rotate-12">PRO PLAN</div>
               </div>
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
                 <div>
-                  <h3 className={`text-xl font-bold mb-2 ${textPrimary}`}>Zysculpt Architect Pro</h3>
-                  <p className={`text-sm max-w-md ${textSecondary}`}>You have full access to unlimited ATS-optimized resume generations, cover letter sculpting, and AI interview prep.</p>
+                  <h3 className={`text-xl font-bold mb-2 ${textPrimary}`}>Zysculpt Pro</h3>
+                  <p className={`text-sm max-w-md ${textSecondary}`}>Unlimited access to resume generation, cover letters, and job matching tools.</p>
                 </div>
                 <div className="flex flex-col items-center gap-3">
                   <span className={`text-3xl font-extrabold ${textPrimary}`}>$19<span className="text-sm font-normal opacity-50">/mo</span></span>
@@ -81,13 +81,13 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
 
           {/* Account Preferences */}
           <section>
-            <h2 className={sectionTitle}>System Preferences</h2>
+            <h2 className={sectionTitle}>Account Preferences</h2>
             <div className={`rounded-3xl overflow-hidden ${cardBg}`}>
               {[
-                { icon: <Bell size={20} />, label: 'Smart Notifications', desc: 'Alerts for job matches and sculpt updates', toggle: true },
-                { icon: <Shield size={20} />, label: 'Privacy & Security', desc: 'Control your profile visibility and data', link: true },
-                { icon: <CreditCard size={20} />, label: 'Payment Methods', desc: 'Securely manage your connected cards', link: true },
-                { icon: <ExternalLink size={20} />, label: 'API Access', desc: 'Connect Zysculpt to your ATS tools', link: true }
+                { icon: <Bell size={20} />, label: 'Email Notifications', desc: 'Alerts for job matches and resume updates', toggle: true },
+                { icon: <Shield size={20} />, label: 'Privacy Settings', desc: 'Control your profile visibility and data sharing', link: true },
+                { icon: <CreditCard size={20} />, label: 'Payment Methods', desc: 'Manage your saved credit cards', link: true },
+                { icon: <ExternalLink size={20} />, label: 'Connected Apps', desc: 'Sync Zysculpt with LinkedIn or your ATS', link: true }
               ].map((item, i) => (
                 <button 
                   key={i} 
@@ -120,12 +120,12 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
             theme === 'dark' ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50 border-red-100'
           }`}>
             <h3 className={`font-bold mb-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Danger Zone</h3>
-            <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto">Once deleted, your resume sculpts and profile data cannot be recovered.</p>
+            <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto">Once deleted, your documents and profile data cannot be recovered.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/10">
-                 <LogOut size={18} /> Logout Session
+                 <LogOut size={18} /> Logout
                </button>
-               <button className="text-xs font-bold text-slate-400 hover:text-red-600 transition-colors">Deactivate Account</button>
+               <button className="text-xs font-bold text-slate-400 hover:text-red-600 transition-colors">Delete Account</button>
             </div>
           </div>
         </div>

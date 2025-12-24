@@ -13,7 +13,8 @@ import {
   Plus,
   ChevronDown,
   Sun,
-  Moon
+  Moon,
+  Mail
 } from 'lucide-react';
 import { AppView, ChatSession, Theme } from '../types';
 
@@ -29,7 +30,7 @@ interface SidebarProps {
   sessions: ChatSession[];
   activeSessionId: string;
   setActiveSessionId: (id: string) => void;
-  onNewSession: () => void;
+  onNewSession: (type?: 'resume' | 'cover-letter') => void;
 }
 
 const LogoIcon = ({ theme }: { theme: Theme }) => (
@@ -37,7 +38,7 @@ const LogoIcon = ({ theme }: { theme: Theme }) => (
     viewBox="0 0 512 512" 
     xmlns="http://www.w3.org/2000/svg" 
     fill="none" 
-    className="w-9 h-9 flex-shrink-0" 
+    className="w-8 h-8 flex-shrink-0" 
     style={{ transform: 'rotate(90deg)' }}
   >
     <path 
@@ -52,11 +53,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   theme, toggleTheme, sessions, activeSessionId, setActiveSessionId, onNewSession 
 }) => {
   const [isResumeSubmenuOpen, setIsResumeSubmenuOpen] = useState(true);
+  const [isLetterSubmenuOpen, setIsLetterSubmenuOpen] = useState(false);
 
   const mainMenuItems = [
     { id: AppView.DOCUMENTS, label: 'Documents', icon: <FolderOpen size={20} /> },
-    { id: AppView.FIND_JOB, label: 'Find Job', icon: <Search size={20} /> },
-    { id: AppView.SETTINGS, label: 'Settings', icon: <Settings size={20} /> },
+    { id: AppView.FIND_JOB, label: 'Job Search', icon: <Search size={20} /> },
+    { id: AppView.SETTINGS, label: 'Account', icon: <Settings size={20} /> },
   ];
 
   const sidebarClasses = `
@@ -88,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-2">
-          {/* AI Resume Builder with Submenu */}
+          {/* Resume Builder Section */}
           <div className="space-y-1">
             <button
               onClick={() => {
@@ -111,14 +113,14 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isResumeSubmenuOpen && (!isCollapsed || isMobileOpen) && (
               <div className="ml-9 mt-1 space-y-1">
                 <button 
-                  onClick={onNewSession}
+                  onClick={() => onNewSession('resume')}
                   className={`w-full flex items-center gap-3 p-2 text-xs font-medium rounded-md transition-all ${
                     theme === 'dark' ? 'text-indigo-400 hover:bg-white/5' : 'text-indigo-600 hover:bg-indigo-50'
                   }`}
                 >
-                  <Plus size={14} /> New Sculpt
+                  <Plus size={14} /> New Resume
                 </button>
-                {sessions.slice(0, 5).map(s => (
+                {sessions.filter(s => s.type === 'resume').slice(0, 3).map(s => (
                   <button
                     key={s.id}
                     onClick={() => { setActiveSessionId(s.id); setView(AppView.RESUME_BUILDER); if(isMobileOpen) setIsMobileOpen(false); }}
@@ -128,7 +130,54 @@ const Sidebar: React.FC<SidebarProps> = ({
                         : theme === 'dark' ? 'text-[#555] hover:text-[#aaa]' : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >
-                    {s.title || 'Untitled Session'}
+                    {s.title || 'Untitled Resume'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cover Letter Section */}
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                if (isCollapsed && !isMobileOpen) setIsCollapsed(false);
+                else { setView(AppView.COVER_LETTER); setIsLetterSubmenuOpen(!isLetterSubmenuOpen); }
+              }}
+              className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
+                currentView === AppView.COVER_LETTER 
+                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
+                  : theme === 'dark' ? 'text-[#a0a0a0] hover:bg-[#1f1f1f] hover:text-white' : 'text-[#64748b] hover:bg-slate-50 hover:text-[#0F172A]'
+              } ${isCollapsed && !isMobileOpen ? 'md:justify-center' : ''}`}
+            >
+              <Mail size={20} />
+              {(!isCollapsed || isMobileOpen) && <span className="font-semibold text-sm">Cover Letter</span>}
+              {(!isCollapsed || isMobileOpen) && (
+                <ChevronDown size={14} className={`ml-auto transition-transform ${isLetterSubmenuOpen ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+
+            {isLetterSubmenuOpen && (!isCollapsed || isMobileOpen) && (
+              <div className="ml-9 mt-1 space-y-1">
+                <button 
+                  onClick={() => onNewSession('cover-letter')}
+                  className={`w-full flex items-center gap-3 p-2 text-xs font-medium rounded-md transition-all ${
+                    theme === 'dark' ? 'text-indigo-400 hover:bg-white/5' : 'text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  <Plus size={14} /> New Letter
+                </button>
+                {sessions.filter(s => s.type === 'cover-letter').slice(0, 3).map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSessionId(s.id); setView(AppView.COVER_LETTER); if(isMobileOpen) setIsMobileOpen(false); }}
+                    className={`w-full text-left p-2 rounded-md text-[11px] truncate transition-all ${
+                      activeSessionId === s.id && currentView === AppView.COVER_LETTER
+                        ? theme === 'dark' ? 'text-white bg-white/5' : 'text-[#0F172A] bg-slate-100 font-semibold'
+                        : theme === 'dark' ? 'text-[#555] hover:text-[#aaa]' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {s.title || 'Untitled Letter'}
                   </button>
                 ))}
               </div>
@@ -154,7 +203,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         <div className="p-4 space-y-2">
-          {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
@@ -172,12 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             } ${isCollapsed ? 'md:justify-center' : ''}`}
           >
             {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {!isCollapsed && <span className="font-medium text-sm">Collapse Sidebar</span>}
-          </button>
-          
-          <button className={`w-full flex items-center gap-4 p-3 rounded-xl text-red-500/70 hover:text-red-500 hover:bg-red-500/5 transition-colors ${isCollapsed && !isMobileOpen ? 'md:justify-center' : ''}`}>
-            <LogOut size={20} />
-            {(!isCollapsed || isMobileOpen) && <span className="font-medium text-sm">Logout</span>}
+            {!isCollapsed && <span className="font-medium text-sm">Collapse Menu</span>}
           </button>
         </div>
       </aside>

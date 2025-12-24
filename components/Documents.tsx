@@ -22,12 +22,8 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
           </button>
           <div>
             <h2 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Documents</h2>
-            <p className={`text-[10px] md:text-xs ${theme === 'dark' ? 'text-[#a0a0a0]' : 'text-slate-500'}`}>Manage your sculpted resumes</p>
+            <p className={`text-[10px] md:text-xs ${theme === 'dark' ? 'text-[#a0a0a0]' : 'text-slate-500'}`}>Manage your generated files</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <button className={`p-2 transition-colors ${theme === 'dark' ? 'text-[#a0a0a0] hover:text-white' : 'text-slate-400 hover:text-[#0F172A]'}`}><Grid size={18} /></button>
-           <button className={`p-2 transition-colors ${theme === 'dark' ? 'text-[#a0a0a0] hover:text-white' : 'text-slate-400 hover:text-[#0F172A]'}`}><ListIcon size={18} /></button>
         </div>
       </header>
 
@@ -39,7 +35,7 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
                 <FileText size={32} className={theme === 'dark' ? 'text-[#333]' : 'text-slate-300'} />
               </div>
               <h3 className={`text-lg font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>No documents yet</h3>
-              <p className="text-slate-500 text-sm max-w-xs">Complete a resume sculpt in the builder to generate your documents here.</p>
+              <p className="text-slate-500 text-sm max-w-xs">Complete a resume or cover letter build to see your documents here.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -55,8 +51,7 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
                        {session.finalResume}
                     </div>
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                      <button onClick={() => onSelectSession(session.id)} className="p-3 bg-white text-black rounded-full hover:bg-slate-100 shadow-xl" title="View"><Eye size={20} /></button>
-                      <button className="p-3 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 shadow-xl" title="Download"><Download size={20} /></button>
+                      <button onClick={() => onSelectSession(session.id)} className="p-3 bg-white text-black rounded-full hover:bg-slate-100 shadow-xl" title="Open"><Eye size={20} /></button>
                     </div>
                   </div>
                   <div className={`p-4 border-t transition-colors ${theme === 'dark' ? 'border-[#2a2a2a]' : 'border-slate-100'}`}>
@@ -64,7 +59,7 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
                     <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
                       <Clock size={12} />
                       <span>{new Date(session.lastUpdated).toLocaleDateString()}</span>
-                      <span className="ml-auto uppercase tracking-tighter text-indigo-500 font-bold">PDF Ready</span>
+                      <span className="ml-auto uppercase tracking-tighter text-indigo-500 font-bold">{session.type === 'resume' ? 'RESUME' : 'LETTER'}</span>
                     </div>
                   </div>
                 </div>

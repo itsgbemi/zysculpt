@@ -11,21 +11,24 @@ export class GeminiService {
     this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   }
 
-  async generateChatResponse(history: Message[], currentMessage: string, context?: { jobDescription?: string, resumeText?: string }) {
-    const systemInstruction = `You are Zysculpt AI, a world-class ATS (Applicant Tracking System) resume architect and recruiter.
-    Your goal is to help the user build a high-impact, job-specific resume.
+  async generateChatResponse(
+    history: Message[], 
+    currentMessage: string, 
+    context?: { jobDescription?: string, resumeText?: string, type?: 'resume' | 'cover-letter' }
+  ) {
+    const isResume = (context?.type || 'resume') === 'resume';
+    
+    const systemInstruction = `You are Zysculpt AI, a world-class ${isResume ? 'ATS resume architect' : 'professional cover letter writer'}.
+    Your goal is to help the user build a high-impact, job-specific ${isResume ? 'resume' : 'cover letter'}.
     
     CRITICAL INSTRUCTIONS:
-    1. If a job description is provided: ${context?.jobDescription || 'Not yet provided.'}
-    2. If existing resume text is provided: ${context?.resumeText || 'Not yet provided.'}
-    3. If they paste a job description, analyze it for keywords and required skills.
-    4. Ask clear, focused questions one or two at a time about their experience, achievements (using metrics/data), and skills if they aren't clear from the uploaded resume.
-    5. Always maintain a professional, encouraging, and expert tone.
-    6. When you have enough information, tell them you are ready to generate the preview.
-    7. Highlight how specific details will help them pass ATS filters.
-    
-    CURRENT CONTEXT:
-    User is currently at the: ${context?.resumeText ? 'Resume Review & Refinement' : 'Information Gathering'} stage.
+    1. Context - Job Description: ${context?.jobDescription || 'Not yet provided.'}
+    2. Context - User Background: ${context?.resumeText || 'Not yet provided.'}
+    3. ${isResume ? 'Analyze the JD for keywords and required skills.' : 'Focus on narrative, tone, and connecting user experience to the company values.'}
+    4. Ask clear, focused questions one or two at a time.
+    5. Maintain a professional, expert, and encouraging tone.
+    6. When ready, offer to "sculpt" the final document.
+    7. For ${isResume ? 'resumes' : 'cover letters'}, focus on ${isResume ? 'quantifiable achievements' : 'passion and specific value-add'}.
     `;
 
     const chat = this.ai.chats.create({
@@ -35,10 +38,6 @@ export class GeminiService {
         temperature: 0.7,
       },
     });
-
-    // Format history for Gemini chat (ignoring the current message which we'll send)
-    // Note: Gemini expects strictly alternating roles if we use the history object,
-    // but we can also just use sendMessage for simplicity here.
     
     try {
       const response = await chat.sendMessageStream({ message: currentMessage });
@@ -61,9 +60,7 @@ export class GeminiService {
       
       INSTRUCTIONS:
       - Use clear headings: Professional Summary, Work Experience, Skills, Education.
-      - Optimize for these specific keywords found in the Job Description.
-      - Ensure work experience uses Action Verbs and includes quantifiable results (X%, $Y, Z users).
-      - Use a clean, standard layout that ATS systems love (no complex columns or graphics in the text).
+      - Optimize for specific keywords from the Job Description.
       - Output ONLY the resume in Markdown.
     `;
 
@@ -73,6 +70,31 @@ export class GeminiService {
     });
 
     return response.text || "Failed to generate resume.";
+  }
+
+  async sculptCoverLetter(jobDescription: string, userData: string): Promise<string> {
+    const prompt = `
+      As a professional recruiter, write a compelling, tailored cover letter based on the Job Description and User Background.
+      
+      JOB DESCRIPTION:
+      ${jobDescription}
+      
+      USER BACKGROUND:
+      ${userData}
+      
+      INSTRUCTIONS:
+      - Use a professional business letter format.
+      - Make it sound natural and enthusiastic, not robotic.
+      - Explicitly link user's top achievements to the specific needs of the job.
+      - Output ONLY the cover letter in Markdown.
+    `;
+
+    const response = await this.ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+    });
+
+    return response.text || "Failed to generate cover letter.";
   }
 }
 
