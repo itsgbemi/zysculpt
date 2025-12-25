@@ -8,10 +8,12 @@ import {
   Menu,
   Sparkles,
   FileDown,
-  Mail
+  Mail,
+  FileText as WordIcon
 } from 'lucide-react';
 import { Message, ChatSession, Theme } from '../types';
 import { geminiService } from '../services/gemini';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 interface CoverLetterBuilderProps {
   onToggleMobile?: () => void;
@@ -45,12 +47,20 @@ const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme }> = 
   );
 };
 
+const CustomMenuIcon = ({ className }: { className?: string }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M4 8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M4 16H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
 const CoverLetterBuilder: React.FC<CoverLetterBuilderProps> = ({ 
   onToggleMobile, theme, sessions, activeSessionId, updateSession, setSessions 
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -107,6 +117,24 @@ const CoverLetterBuilder: React.FC<CoverLetterBuilderProps> = ({
     } catch (err) { console.error(err); } finally { setIsTyping(false); }
   };
 
+  const exportDOCX = async () => {
+    if (!activeSession.finalResume) return;
+    setIsExporting(true);
+    try {
+      const paragraphs = activeSession.finalResume.split('\n').map(line => new Paragraph({
+        children: [new TextRun(line)],
+        spacing: { after: 120 }
+      }));
+      const doc = new Document({ sections: [{ children: paragraphs }] });
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Cover_Letter_${activeSession.title}.docx`;
+      link.click();
+    } catch (e) { console.error(e); } finally { setIsExporting(false); }
+  };
+
   const exportPDF = () => {
     const element = document.querySelector('.printable-area');
     const opt = { 
@@ -124,11 +152,14 @@ const CoverLetterBuilder: React.FC<CoverLetterBuilderProps> = ({
       <div className="flex flex-col h-full animate-in fade-in duration-500">
         <header className={`flex items-center justify-between p-4 md:p-6 border-b sticky top-0 z-10 no-print transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
           <div className="flex items-center gap-2">
-            <button onClick={onToggleMobile} className="md:hidden"><Menu size={24} className={theme === 'dark' ? 'text-white' : 'text-[#0F172A]'} /></button>
+            <button onClick={onToggleMobile} className="md:hidden">
+              <CustomMenuIcon className={theme === 'dark' ? 'text-white' : 'text-[#0F172A]'} />
+            </button>
             <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Cover Letter Preview</h2>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowPreview(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all ${theme === 'dark' ? 'bg-[#2a2a2a] text-white hover:bg-[#333]' : 'bg-slate-100 text-[#0F172A] hover:bg-slate-200'}`}><Undo size={14} /> Back to Editor</button>
+            <button onClick={exportDOCX} disabled={isExporting} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all ${theme === 'dark' ? 'bg-[#2a2a2a] text-white hover:bg-[#333]' : 'bg-slate-100 text-[#0F172A] hover:bg-slate-200'}`}><WordIcon size={14} /> Word</button>
             <button onClick={exportPDF} className="px-4 py-2 bg-indigo-500 text-white rounded-lg font-bold text-xs md:text-sm hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20">Save PDF</button>
           </div>
         </header>
@@ -146,7 +177,7 @@ const CoverLetterBuilder: React.FC<CoverLetterBuilderProps> = ({
       <header className={`p-4 md:p-6 border-b flex items-center justify-between transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
         <div className="flex items-center gap-2">
           <button onClick={onToggleMobile} className="md:hidden">
-            <Menu size={24} className={theme === 'dark' ? 'text-white' : 'text-[#0F172A]'} />
+            <CustomMenuIcon className={theme === 'dark' ? 'text-white' : 'text-[#0F172A]'} />
           </button>
           <div>
             <h2 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Cover Letter Writer</h2>

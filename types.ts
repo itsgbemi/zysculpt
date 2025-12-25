@@ -2,6 +2,7 @@
 export enum AppView {
   RESUME_BUILDER = 'RESUME_BUILDER',
   COVER_LETTER = 'COVER_LETTER',
+  RESIGNATION_LETTER = 'RESIGNATION_LETTER',
   DOCUMENTS = 'DOCUMENTS',
   FIND_JOB = 'FIND_JOB',
   SETTINGS = 'SETTINGS',
@@ -24,7 +25,7 @@ export interface ChatSession {
   jobDescription?: string;
   resumeText?: string;
   finalResume?: string | null;
-  type: 'resume' | 'cover-letter';
+  type: 'resume' | 'cover-letter' | 'resignation-letter';
 }
 
 export interface ResumeData {

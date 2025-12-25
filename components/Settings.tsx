@@ -8,6 +8,13 @@ interface SettingsProps {
   theme: Theme;
 }
 
+const CustomMenuIcon = ({ className }: { className?: string }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M4 8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M4 16H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
 const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
   const textPrimary = theme === 'dark' ? 'text-white' : 'text-[#0F172A]';
   const textSecondary = theme === 'dark' ? 'text-slate-400' : 'text-slate-500';
@@ -19,7 +26,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme }) => {
       <header className={`p-4 md:p-6 border-b flex items-center justify-between sticky top-0 z-10 transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
         <div className="flex items-center gap-3">
           <button onClick={onToggleMobile} className="md:hidden">
-            <Menu size={24} className={textPrimary} />
+            <CustomMenuIcon className={textPrimary} />
           </button>
           <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Settings</h2>
         </div>

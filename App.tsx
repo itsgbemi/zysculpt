@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import AIResumeBuilder from './components/AIResumeBuilder';
 import CoverLetterBuilder from './components/CoverLetterBuilder';
+import ResignationLetterBuilder from './components/ResignationLetterBuilder';
 import JobSearch from './components/JobSearch';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
@@ -23,7 +24,7 @@ const App: React.FC = () => {
       messages: [{
         id: '1',
         role: 'assistant',
-        content: "Welcome to Zysculpt! I'm your AI Resume Builder. I'll help you craft a professional resume tailored to your target roles.\n\nTo start, please **paste a job description** or **upload your existing resume** using the paperclip icon.",
+        content: "Welcome to Zysculpt! I'm your AI Career Architect. I'll help you craft a professional resume tailored to your target roles.\n\nTo start, please **paste a job description** or **upload your existing resume** using the paperclip icon.",
         timestamp: Date.now(),
       }],
       jobDescription: '',
@@ -45,19 +46,31 @@ const App: React.FC = () => {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, ...updates, lastUpdated: Date.now() } : s));
   };
 
-  const createNewSession = (type: 'resume' | 'cover-letter' = 'resume') => {
+  const createNewSession = (type: 'resume' | 'cover-letter' | 'resignation-letter' = 'resume') => {
     const newId = Date.now().toString();
+    let welcomeMsg = '';
+    let targetView = AppView.RESUME_BUILDER;
+
+    if (type === 'resume') {
+      welcomeMsg = "I'm ready to build your next resume. Paste a job description or upload your current CV to begin.";
+      targetView = AppView.RESUME_BUILDER;
+    } else if (type === 'cover-letter') {
+      welcomeMsg = "Let's write a compelling cover letter. Tell me about the role you're applying for and why you're a great fit.";
+      targetView = AppView.COVER_LETTER;
+    } else if (type === 'resignation-letter') {
+      welcomeMsg = "I'll help you write a professional resignation letter. Tell me about your current role and your notice period.";
+      targetView = AppView.RESIGNATION_LETTER;
+    }
+
     const newSession: ChatSession = {
       id: newId,
-      title: type === 'resume' ? 'New Resume' : 'New Cover Letter',
+      title: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       lastUpdated: Date.now(),
       type: type,
       messages: [{
         id: '1',
         role: 'assistant',
-        content: type === 'resume' 
-          ? "I'm ready to build your next resume. Paste a job description or upload your current CV to begin." 
-          : "Let's write a compelling cover letter. Tell me about the role you're applying for and why you're a great fit.",
+        content: welcomeMsg,
         timestamp: Date.now(),
       }],
       jobDescription: '',
@@ -66,7 +79,7 @@ const App: React.FC = () => {
     };
     setSessions([newSession, ...sessions]);
     setActiveSessionId(newId);
-    setCurrentView(type === 'resume' ? AppView.RESUME_BUILDER : AppView.COVER_LETTER);
+    setCurrentView(targetView);
   };
 
   const handleSculptFromJob = (jd: string, type: 'resume' | 'cover-letter') => {
@@ -108,6 +121,8 @@ const App: React.FC = () => {
         return <AIResumeBuilder {...commonProps} />;
       case AppView.COVER_LETTER:
         return <CoverLetterBuilder {...commonProps} />;
+      case AppView.RESIGNATION_LETTER:
+        return <ResignationLetterBuilder {...commonProps} />;
       case AppView.DOCUMENTS:
         return (
           <Documents 
@@ -117,7 +132,9 @@ const App: React.FC = () => {
             onSelectSession={(id) => {
               const session = sessions.find(s => s.id === id);
               setActiveSessionId(id);
-              setCurrentView(session?.type === 'cover-letter' ? AppView.COVER_LETTER : AppView.RESUME_BUILDER);
+              if (session?.type === 'cover-letter') setCurrentView(AppView.COVER_LETTER);
+              else if (session?.type === 'resignation-letter') setCurrentView(AppView.RESIGNATION_LETTER);
+              else setCurrentView(AppView.RESUME_BUILDER);
             }}
           />
         );

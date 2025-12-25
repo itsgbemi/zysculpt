@@ -14,21 +14,24 @@ export class GeminiService {
   async generateChatResponse(
     history: Message[], 
     currentMessage: string, 
-    context?: { jobDescription?: string, resumeText?: string, type?: 'resume' | 'cover-letter' }
+    context?: { jobDescription?: string, resumeText?: string, type?: 'resume' | 'cover-letter' | 'resignation-letter' }
   ) {
-    const isResume = (context?.type || 'resume') === 'resume';
+    const type = context?.type || 'resume';
+    let roleDescription = 'professional career assistant';
+    if (type === 'resume') roleDescription = 'ATS resume architect';
+    if (type === 'cover-letter') roleDescription = 'persuasive cover letter writer';
+    if (type === 'resignation-letter') roleDescription = 'professional resignation consultant';
     
-    const systemInstruction = `You are Zysculpt AI, a world-class ${isResume ? 'ATS resume architect' : 'professional cover letter writer'}.
-    Your goal is to help the user build a high-impact, job-specific ${isResume ? 'resume' : 'cover letter'}.
+    const systemInstruction = `You are Zysculpt AI, a world-class ${roleDescription}.
+    Your goal is to help the user build a high-impact, professional ${type.replace('-', ' ')}.
     
     CRITICAL INSTRUCTIONS:
-    1. Context - Job Description: ${context?.jobDescription || 'Not yet provided.'}
+    1. Context - Target Info: ${context?.jobDescription || 'Not yet provided.'}
     2. Context - User Background: ${context?.resumeText || 'Not yet provided.'}
-    3. ${isResume ? 'Analyze the JD for keywords and required skills.' : 'Focus on narrative, tone, and connecting user experience to the company values.'}
-    4. Ask clear, focused questions one or two at a time.
-    5. Maintain a professional, expert, and encouraging tone.
-    6. When ready, offer to "sculpt" the final document.
-    7. For ${isResume ? 'resumes' : 'cover letters'}, focus on ${isResume ? 'quantifiable achievements' : 'passion and specific value-add'}.
+    3. Ask clear, focused questions one or two at a time.
+    4. Maintain a professional, expert, and encouraging tone.
+    5. When ready, offer to "generate" the final document.
+    ${type === 'resignation-letter' ? 'Focus on professionalism, gratitude (if applicable), and clear exit details like notice period.' : ''}
     `;
 
     const chat = this.ai.chats.create({
@@ -50,7 +53,7 @@ export class GeminiService {
 
   async sculptResume(jobDescription: string, userData: string): Promise<string> {
     const prompt = `
-      As an ATS expert, take the following Job Description and User Experience data and "sculpt" a perfect resume in Markdown format.
+      As an ATS expert, take the following Job Description and User Experience data and generate a perfect resume in Markdown format.
       
       JOB DESCRIPTION:
       ${jobDescription}
@@ -95,6 +98,31 @@ export class GeminiService {
     });
 
     return response.text || "Failed to generate cover letter.";
+  }
+
+  async sculptResignationLetter(exitDetails: string, userData: string): Promise<string> {
+    const prompt = `
+      As a professional consultant, write a polite and firm resignation letter based on the provided details.
+      
+      EXIT DETAILS (Notice period, reason, etc):
+      ${exitDetails}
+      
+      USER BACKGROUND:
+      ${userData}
+      
+      INSTRUCTIONS:
+      - Use professional business letter format.
+      - Ensure a positive tone to maintain bridges.
+      - Include current date placeholder, manager name placeholder, and signature placeholder.
+      - Output ONLY the letter in Markdown.
+    `;
+
+    const response = await this.ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+    });
+
+    return response.text || "Failed to generate resignation letter.";
   }
 }
 

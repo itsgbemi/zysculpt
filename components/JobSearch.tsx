@@ -23,6 +23,13 @@ interface Job {
   type: string;
 }
 
+const CustomMenuIcon = ({ className }: { className?: string }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M4 8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M4 16H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
 const JobSearch: React.FC<JobSearchProps> = ({ onToggleMobile, theme, onSculptResume, onSculptLetter }) => {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
@@ -166,7 +173,7 @@ const JobSearch: React.FC<JobSearchProps> = ({ onToggleMobile, theme, onSculptRe
       <header className={`p-4 md:p-6 border-b flex items-center justify-between sticky top-0 z-10 transition-colors ${headerBg}`}>
         <div className="flex items-center gap-3">
           <button onClick={onToggleMobile} className="md:hidden">
-            <Menu size={24} className={textPrimary} />
+            <CustomMenuIcon className={textPrimary} />
           </button>
           <div>
             <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Job Marketplace</h2>

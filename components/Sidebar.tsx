@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  Mail
+  Mail,
+  DoorOpen
 } from 'lucide-react';
 import { AppView, ChatSession, Theme } from '../types';
 
@@ -30,7 +31,7 @@ interface SidebarProps {
   sessions: ChatSession[];
   activeSessionId: string;
   setActiveSessionId: (id: string) => void;
-  onNewSession: (type?: 'resume' | 'cover-letter') => void;
+  onNewSession: (type?: 'resume' | 'cover-letter' | 'resignation-letter') => void;
 }
 
 const LogoIcon = ({ theme }: { theme: Theme }) => (
@@ -54,6 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [isResumeSubmenuOpen, setIsResumeSubmenuOpen] = useState(true);
   const [isLetterSubmenuOpen, setIsLetterSubmenuOpen] = useState(false);
+  const [isResignSubmenuOpen, setIsResignSubmenuOpen] = useState(false);
 
   const mainMenuItems = [
     { id: AppView.DOCUMENTS, label: 'Documents', icon: <FolderOpen size={20} /> },
@@ -120,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Plus size={14} /> New Resume
                 </button>
-                {sessions.filter(s => s.type === 'resume').slice(0, 3).map(s => (
+                {sessions.filter(s => s.type === 'resume').slice(0, 2).map(s => (
                   <button
                     key={s.id}
                     onClick={() => { setActiveSessionId(s.id); setView(AppView.RESUME_BUILDER); if(isMobileOpen) setIsMobileOpen(false); }}
@@ -167,19 +169,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Plus size={14} /> New Letter
                 </button>
-                {sessions.filter(s => s.type === 'cover-letter').slice(0, 3).map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setView(AppView.COVER_LETTER); if(isMobileOpen) setIsMobileOpen(false); }}
-                    className={`w-full text-left p-2 rounded-md text-[11px] truncate transition-all ${
-                      activeSessionId === s.id && currentView === AppView.COVER_LETTER
-                        ? theme === 'dark' ? 'text-white bg-white/5' : 'text-[#0F172A] bg-slate-100 font-semibold'
-                        : theme === 'dark' ? 'text-[#555] hover:text-[#aaa]' : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    {s.title || 'Untitled Letter'}
-                  </button>
-                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Resignation Section */}
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                if (isCollapsed && !isMobileOpen) setIsCollapsed(false);
+                else { setView(AppView.RESIGNATION_LETTER); setIsResignSubmenuOpen(!isResignSubmenuOpen); }
+              }}
+              className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
+                currentView === AppView.RESIGNATION_LETTER 
+                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
+                  : theme === 'dark' ? 'text-[#a0a0a0] hover:bg-[#1f1f1f] hover:text-white' : 'text-[#64748b] hover:bg-slate-50 hover:text-[#0F172A]'
+              } ${isCollapsed && !isMobileOpen ? 'md:justify-center' : ''}`}
+            >
+              <DoorOpen size={20} />
+              {(!isCollapsed || isMobileOpen) && <span className="font-semibold text-sm">Resignation Letter</span>}
+              {(!isCollapsed || isMobileOpen) && (
+                <ChevronDown size={14} className={`ml-auto transition-transform ${isResignSubmenuOpen ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+
+            {isResignSubmenuOpen && (!isCollapsed || isMobileOpen) && (
+              <div className="ml-9 mt-1 space-y-1">
+                <button 
+                  onClick={() => onNewSession('resignation-letter')}
+                  className={`w-full flex items-center gap-3 p-2 text-xs font-medium rounded-md transition-all ${
+                    theme === 'dark' ? 'text-indigo-400 hover:bg-white/5' : 'text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  <Plus size={14} /> New Resignation
+                </button>
               </div>
             )}
           </div>
