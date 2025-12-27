@@ -1,6 +1,6 @@
 
-import React, { useRef } from 'react';
-import { User, Bell, Shield, CreditCard, ExternalLink, Menu, LogOut, ChevronRight, CheckCircle, Save, FileText, Mail, Phone, MapPin, Linkedin } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { User, Bell, Shield, CreditCard, ExternalLink, Menu, LogOut, ChevronRight, CheckCircle, Save, FileText, Mail, Phone, MapPin, Linkedin, Loader2 } from 'lucide-react';
 import { Theme, UserProfile } from '../types';
 
 interface SettingsProps {
@@ -11,6 +11,9 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile, setUserProfile }) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
   const textPrimary = theme === 'dark' ? 'text-white' : 'text-[#0F172A]';
   const textSecondary = theme === 'dark' ? 'text-slate-400' : 'text-slate-500';
   const cardBg = theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a]' : 'bg-white border-slate-200 shadow-sm';
@@ -20,15 +23,29 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpdate = (field: keyof UserProfile, value: string) => {
+    setIsSaving(true);
     setUserProfile(prev => ({ ...prev, [field]: value }));
+    setTimeout(() => setIsSaving(false), 800);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadProgress(0);
       const reader = new FileReader();
+      
+      reader.onprogress = (data) => {
+        if (data.lengthComputable) {
+          setUploadProgress(Math.round((data.loaded / data.total) * 100));
+        }
+      };
+
       reader.onload = (ev) => {
-        handleUpdate('baseResumeText', ev.target?.result as string);
+        setUploadProgress(100);
+        setTimeout(() => {
+          handleUpdate('baseResumeText', ev.target?.result as string);
+          setUploadProgress(null);
+        }, 500);
       };
       reader.readAsText(file);
     }
@@ -43,7 +60,18 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
               <path d="M4 6H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Settings</h2>
+          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Account Settings</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {isSaving ? (
+            <div className="flex items-center gap-2 text-indigo-500 text-xs font-bold animate-pulse">
+               <Loader2 size={14} className="animate-spin" /> Saving...
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-emerald-500 text-xs font-bold">
+               <CheckCircle size={14} /> All changes saved
+            </div>
+          )}
         </div>
       </header>
 
@@ -51,7 +79,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
         <div className="space-y-12 pb-24">
           {/* Profile Section */}
           <section>
-            <h2 className={sectionTitle}><User size={14} /> Professional Identity</h2>
+            <h2 className={sectionTitle}><User size={14} /> Professional Information</h2>
             <div className={`p-8 rounded-[32px] border ${cardBg}`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -67,7 +95,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold opacity-50 ml-1">Professional Title</label>
+                  <label className="text-xs font-bold opacity-50 ml-1">Job Title</label>
                   <input 
                     value={userProfile.title}
                     onChange={(e) => handleUpdate('title', e.target.value)}
@@ -76,7 +104,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold opacity-50 ml-1">Email Address</label>
+                  <label className="text-xs font-bold opacity-50 ml-1">Email</label>
                   <div className="relative">
                     <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30" />
                     <input 
@@ -88,7 +116,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold opacity-50 ml-1">Phone Number</label>
+                  <label className="text-xs font-bold opacity-50 ml-1">Phone</label>
                   <div className="relative">
                     <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30" />
                     <input 
@@ -112,7 +140,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold opacity-50 ml-1">LinkedIn URL</label>
+                  <label className="text-xs font-bold opacity-50 ml-1">LinkedIn Profile</label>
                   <div className="relative">
                     <Linkedin size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30" />
                     <input 
@@ -129,41 +157,44 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
 
           {/* Base Resume Section */}
           <section>
-            <h2 className={sectionTitle}><FileText size={14} /> Career DNA (Base Resume)</h2>
+            <h2 className={sectionTitle}><FileText size={14} /> Master Professional History</h2>
             <div className={`p-8 rounded-[32px] border ${cardBg}`}>
-              <p className={`text-sm mb-6 ${textSecondary}`}>
-                Your base resume acts as the primary knowledge base for the AI. Uploading it here ensures Zysculpt knows your full history without you having to explain it in every chat.
+              <p className={`text-sm mb-6 ${textSecondary} leading-relaxed`}>
+                Upload your latest resume. This becomes the primary source of information for the AI, ensuring your history and details are automatically used in every new document you create.
               </p>
               
               <div className="flex flex-col gap-4">
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept=".txt,.pdf,.docx" />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex items-center justify-center gap-3 p-8 border-2 border-dashed rounded-3xl transition-all ${
+                  className={`flex flex-col items-center justify-center gap-3 p-12 border-2 border-dashed rounded-3xl transition-all relative overflow-hidden ${
                     userProfile.baseResumeText ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-indigo-500/20 hover:border-indigo-500 bg-indigo-500/5'
                   }`}
                 >
-                  {userProfile.baseResumeText ? <CheckCircle className="text-emerald-500" /> : <FileText size={32} className="text-indigo-500" />}
+                  {uploadProgress !== null && (
+                    <div className="absolute inset-0 bg-indigo-600/10 flex items-center justify-center">
+                       <div className="w-1/2 h-1 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                       </div>
+                    </div>
+                  )}
+                  {userProfile.baseResumeText ? <CheckCircle className="text-emerald-500" size={32} /> : <FileText size={32} className="text-indigo-500" />}
                   <span className={`font-bold ${textPrimary}`}>
-                    {userProfile.baseResumeText ? 'Base Resume Loaded' : 'Click to upload your Master CV'}
+                    {userProfile.baseResumeText ? 'Master Resume Updated' : 'Click to upload your Master CV'}
                   </span>
                 </button>
                 
                 {userProfile.baseResumeText && (
-                  <div className={`p-4 rounded-2xl text-[10px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto border ${inputBg} opacity-50`}>
-                    {userProfile.baseResumeText}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold opacity-50 uppercase tracking-widest">Preview</p>
+                    <div className={`p-4 rounded-2xl text-[10px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto border ${inputBg} opacity-50`}>
+                      {userProfile.baseResumeText}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </section>
-
-          <div className="flex items-center justify-center pt-8 border-t border-white/5">
-             <div className="text-center">
-                <p className={`text-xs font-bold opacity-30 mb-2`}>All changes saved locally</p>
-                <div className="flex items-center gap-2 text-indigo-500 font-bold"><CheckCircle size={16} /> Identity Fully Sculpted</div>
-             </div>
-          </div>
         </div>
       </div>
     </div>

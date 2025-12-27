@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { Message, ChatSession, Theme, StylePrefs } from '../types';
 import { geminiService } from '../services/gemini';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { Document, Packer } from 'docx';
+import { parseMarkdownToDocx } from '../utils/docx-export';
 
 interface ResignationLetterBuilderProps {
   onToggleMobile?: () => void;
@@ -28,22 +29,19 @@ interface ResignationLetterBuilderProps {
 const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme; prefs?: StylePrefs }> = ({ text, dark = false, theme = 'dark', prefs }) => {
   const lines = text.split('\n');
   const fontClass = prefs?.font || 'font-sans';
-  const listStyle = prefs?.listStyle || 'disc';
   
   const formatText = (content: string) => {
-    const parts = content.split(/(\*\*.*?\*\*)/g);
+    const parts = content.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
       }
+      const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (linkMatch) {
+        return <a key={i} href={linkMatch[2]} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer">{linkMatch[1]}</a>;
+      }
       return part;
     });
-  };
-
-  const getListBullet = () => {
-    if (listStyle === 'circle') return '○';
-    if (listStyle === 'square') return '■';
-    return '•';
   };
 
   return (
@@ -53,15 +51,7 @@ const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme; pref
         if (trimmed === '') return <div key={i} className="h-2" />;
         if (trimmed.startsWith('### ')) return <h3 key={i} className="text-base font-bold mt-4 mb-2">{formatText(trimmed.slice(4))}</h3>;
         if (trimmed.startsWith('## ')) return <h2 key={i} className="text-lg font-bold mt-6 mb-3 border-b pb-1 border-current opacity-20">{formatText(trimmed.slice(3))}</h2>;
-        if (trimmed.startsWith('# ')) return <h1 key={i} className="text-xl font-bold mt-8 mb-4 border-b-2 pb-2 uppercase tracking-tight border-current opacity-80">{formatText(trimmed.slice(2))}</h1>;
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          return (
-            <div key={i} className="flex gap-2 ml-4">
-              <span className="opacity-50">{getListBullet()}</span>
-              <span className="flex-1">{formatText(trimmed.slice(2))}</span>
-            </div>
-          );
-        }
+        if (trimmed.startsWith('# ')) return <h1 key={i} className="text-xl font-bold mt-8 mb-4 border-b-2 pb-2 uppercase tracking-tight border-current opacity-80 text-center">{formatText(trimmed.slice(2))}</h1>;
         return <p key={i} className="leading-relaxed mb-2">{formatText(line)}</p>;
       })}
     </div>
@@ -75,16 +65,9 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [activeStylePopover, setActiveStylePopover] = useState<'font' | 'list' | null>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const stylePrefs: StylePrefs = activeSession.stylePrefs || {
-    font: 'font-sans',
-    headingColor: 'text-black',
-    listStyle: 'disc'
-  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,16 +109,12 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
     } finally { setIsTyping(false); }
   };
 
-  const updatePrefs = (newPrefs: Partial<StylePrefs>) => {
-    updateSession(activeSessionId, { stylePrefs: { ...stylePrefs, ...newPrefs } });
-  };
-
   const exportPDF = () => {
     setIsExporting(true);
     const element = document.querySelector('.printable-area');
     const opt = { 
       margin: 20, 
-      filename: `ResignationLetter_${activeSession.title}.pdf`, 
+      filename: `Resignation_Letter_${activeSession.title.replace(/\s+/g, '_')}.pdf`, 
       html2canvas: { scale: 2 }, 
       jsPDF: { unit: 'mm', format: 'a4' } 
     };
@@ -147,23 +126,18 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
     if (!activeSession.finalResume) return;
     setIsExporting(true);
     try {
-      const paragraphs = activeSession.finalResume.split('\n').map(line => {
-        return new Paragraph({
-          children: [new TextRun(line)],
-          spacing: { after: 120 }
-        });
-      });
+      const children = parseMarkdownToDocx(activeSession.finalResume);
       const doc = new Document({
         sections: [{
           properties: {},
-          children: paragraphs,
+          children: children,
         }],
       });
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ResignationLetter_${activeSession.title}.docx`;
+      link.download = `Resignation_Letter_${activeSession.title.replace(/\s+/g, '_')}.docx`;
       link.click();
     } catch (e) {
       console.error(e);
@@ -177,11 +151,6 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
       <div className="flex flex-col h-full animate-in fade-in duration-500 relative">
         <header className={`flex items-center justify-between p-4 md:p-6 border-b sticky top-0 z-10 no-print transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
           <div className="flex items-center gap-2">
-            <button onClick={onToggleMobile} className="md:hidden">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}>
-                <path d="M4 6H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
             <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Resignation Letter Preview</h2>
           </div>
           <div className="flex gap-2">
@@ -192,37 +161,7 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
         </header>
         <div className={`flex-1 overflow-y-auto p-4 md:p-8 pb-32 transition-colors ${theme === 'dark' ? 'bg-[#121212]' : 'bg-slate-50'}`}>
           <div className="printable-area max-w-4xl mx-auto bg-white text-black p-12 md:p-16 shadow-2xl rounded-sm min-h-[1050px] border border-slate-200">
-            <MarkdownLite text={activeSession.finalResume} dark={true} prefs={stylePrefs} />
-          </div>
-        </div>
-
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 no-print z-20">
-          <div className={`flex items-center gap-2 md:gap-4 p-2 rounded-2xl shadow-2xl border backdrop-blur-md ${theme === 'dark' ? 'bg-black/80 border-white/10 text-white' : 'bg-white/90 border-slate-300 text-slate-800'}`}>
-             <div className="relative">
-                <button onClick={() => setActiveStylePopover(activeStylePopover === 'font' ? null : 'font')} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${activeStylePopover === 'font' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}>
-                   <TypeIcon size={18} /><span className="hidden md:inline text-xs font-bold">Font</span><ChevronUp size={12} className={`transition-transform ${activeStylePopover === 'font' ? 'rotate-180' : ''}`} />
-                </button>
-                {activeStylePopover === 'font' && (
-                  <div className={`absolute bottom-full left-0 mb-3 w-48 p-2 rounded-2xl shadow-2xl border ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'}`}>
-                     {[{id:'font-sans',label:'Inter'},{id:'font-serif',label:'Garamond'},{id:'font-mono',label:'Roboto'},{id:'font-arial',label:'Arial'}].map(f=>(
-                       <button key={f.id} onClick={()=>{updatePrefs({font:f.id});setActiveStylePopover(null)}} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold ${stylePrefs.font===f.id?'bg-indigo-600 text-white':'hover:bg-slate-100 dark:hover:bg-white/10'}`}>{f.label}</button>
-                     ))}
-                  </div>
-                )}
-             </div>
-             <div className="h-6 w-px bg-slate-200 dark:bg-white/10 mx-1" />
-             <div className="relative">
-                <button onClick={() => setActiveStylePopover(activeStylePopover === 'list' ? null : 'list')} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${activeStylePopover === 'list' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}>
-                   <ListIcon size={18} /><span className="hidden md:inline text-xs font-bold">Style</span><ChevronUp size={12} className={`transition-transform ${activeStylePopover === 'list' ? 'rotate-180' : ''}`} />
-                </button>
-                {activeStylePopover === 'list' && (
-                  <div className={`absolute bottom-full left-0 mb-3 w-32 p-2 rounded-2xl shadow-2xl border ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'}`}>
-                     {['disc','circle','square'].map(l=>(
-                       <button key={l} onClick={()=>{updatePrefs({listStyle:l as any});setActiveStylePopover(null)}} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold capitalize ${stylePrefs.listStyle===l?'bg-indigo-600 text-white':'hover:bg-slate-100 dark:hover:bg-white/10'}`}>{l}</button>
-                     ))}
-                  </div>
-                )}
-             </div>
+            <MarkdownLite text={activeSession.finalResume} dark={true} />
           </div>
         </div>
       </div>
@@ -240,7 +179,7 @@ const ResignationLetterBuilder: React.FC<ResignationLetterBuilderProps> = ({
           </button>
           <div className="flex flex-col">
             <h2 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Resignation Letter</h2>
-            <p className={`text-[10px] md:text-xs opacity-50 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>Ensuring a professional and graceful career transition.</p>
+            <p className={`text-[10px] md:text-xs opacity-50 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>Professional assistance for your career transition.</p>
           </div>
         </div>
         {activeSession.messages.length > 1 && (

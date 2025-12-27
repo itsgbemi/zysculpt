@@ -16,7 +16,8 @@ import {
   Rocket,
   Lightbulb,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { AppView, ChatSession, Theme, DailyLog, UserProfile } from '../types';
 
@@ -30,9 +31,9 @@ interface OverviewProps {
 }
 
 const ZYSCULPT_TASKS = [
-  { id: 't1', label: 'Complete your Professional Profile', link: AppView.SETTINGS },
+  { id: 't1', label: 'Complete your Profile', link: AppView.SETTINGS },
   { id: 't2', label: 'Upload your Base Resume', link: AppView.SETTINGS },
-  { id: 't3', label: 'Set a 1-year Career Goal', link: AppView.CAREER_COPILOT },
+  { id: 't3', label: 'Set a Career Goal', link: AppView.CAREER_COPILOT },
   { id: 't4', label: 'Tailor a Resume for a Job', link: AppView.RESUME_BUILDER },
 ];
 
@@ -88,7 +89,7 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
               <path d="M4 6H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Career Command Center</h2>
+          <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Home</h2>
         </div>
       </header>
 
@@ -100,10 +101,10 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-indigo-600 rounded-xl text-white"><Rocket size={20} /></div>
-                    <h1 className={`text-2xl md:text-3xl font-extrabold ${textPrimary}`}>Start Your Career Sculpting</h1>
+                    <h1 className={`text-2xl md:text-3xl font-extrabold ${textPrimary}`}>Set up your career profile</h1>
                   </div>
                   <p className={`text-lg mb-6 leading-relaxed ${textSecondary}`}>
-                    Welcome to Zysculpt. Before we build high-impact resumes, let's establish your base Career DNA.
+                    Welcome to Zysculpt. To get the most accurate results, let's start by completing your basic professional background.
                   </p>
                   <div className="space-y-3">
                     {ZYSCULPT_TASKS.map((task, idx) => {
@@ -112,10 +113,10 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
                         <button 
                           key={task.id}
                           onClick={() => setView(task.link)}
-                          className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all ${isComplete ? 'opacity-50 line-through' : 'hover:translate-x-1'} ${cardBg}`}
+                          className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all ${isComplete ? 'opacity-50' : 'hover:translate-x-1'} ${cardBg}`}
                         >
                           {isComplete ? <CheckCircle2 className="text-emerald-500" size={18} /> : <div className="w-5 h-5 rounded-full border-2 border-slate-300" />}
-                          <span className={`text-sm font-bold ${textPrimary}`}>{task.label}</span>
+                          <span className={`text-sm font-bold ${textPrimary} ${isComplete ? 'line-through' : ''}`}>{task.label}</span>
                           {!isComplete && <ChevronRight size={14} className="ml-auto opacity-30" />}
                         </button>
                       );
@@ -131,7 +132,7 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
         ) : (
           <div className="mb-12">
             <h1 className={`text-3xl md:text-4xl font-extrabold mb-2 tracking-tight ${textPrimary}`}>Hello, {userProfile.fullName.split(' ')[0]}.</h1>
-            <p className={`${textSecondary} font-medium`}>{userProfile.title || 'Professional'} • Goal: {activeGoalSession?.careerGoalData?.mainGoal || 'Not set'}</p>
+            <p className={`${textSecondary} font-medium`}>{userProfile.title || 'Professional'} • Goal: {activeGoalSession?.careerGoalData?.mainGoal || 'Set a new career goal'}</p>
           </div>
         )}
 
@@ -207,19 +208,19 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
           <div className="space-y-6">
             <div className={`p-6 rounded-3xl border ${theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-emerald-50 border-emerald-100'}`}>
               <h4 className={`text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                <Lightbulb size={16} /> Zysculpt Pro Tip
+                <Lightbulb size={16} /> Tip
               </h4>
               <p className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-emerald-300/80' : 'text-emerald-800'}`}>
-                Did you know? You can ask the <strong>Career Copilot</strong> to simulate a job interview for specific roles you find in the Marketplace.
+                Did you know? You can ask the <strong>Career Copilot</strong> to simulate a job interview for specific roles you find in the Job Marketplace.
               </p>
             </div>
 
             <div className="space-y-3">
               <h2 className={`text-xs font-bold uppercase tracking-widest ${textSecondary}`}>Quick Actions</h2>
               {[
-                { label: 'Map Trajectory', view: AppView.CAREER_COPILOT, icon: <Compass />, color: 'bg-indigo-500' },
+                { label: 'Set Goals', view: AppView.CAREER_COPILOT, icon: <Compass />, color: 'bg-indigo-500' },
                 { label: 'Tailor Resume', view: AppView.RESUME_BUILDER, icon: <FileText />, color: 'bg-emerald-500' },
-                { label: 'Draft Pitch', view: AppView.COVER_LETTER, icon: <Mail />, color: 'bg-orange-500' },
+                { label: 'Draft Cover Letter', view: AppView.COVER_LETTER, icon: <Mail />, color: 'bg-orange-500' },
               ].map((action, i) => (
                 <button 
                   key={i}
@@ -241,5 +242,4 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
   );
 };
 
-import { Calendar as CalendarIcon } from 'lucide-react';
 export default Overview;

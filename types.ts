@@ -43,9 +43,9 @@ export interface CareerGoal {
 }
 
 export interface StylePrefs {
-  font: string;
+  font: 'font-sans' | 'font-serif' | 'font-mono' | 'font-arial' | 'font-times';
   headingColor: string;
-  listStyle: 'disc' | 'circle' | 'square';
+  listStyle: 'disc' | 'circle' | 'square' | 'star';
 }
 
 export interface ChatSession {

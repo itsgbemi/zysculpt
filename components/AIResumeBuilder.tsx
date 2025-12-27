@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { Message, ChatSession, Theme, StylePrefs, UserProfile } from '../types';
 import { geminiService } from '../services/gemini';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { Document, Packer } from 'docx';
+import { parseMarkdownToDocx } from '../utils/docx-export';
 
 interface AIResumeBuilderProps {
   onToggleMobile?: () => void;
@@ -32,10 +33,15 @@ const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme; pref
   const listStyle = prefs?.listStyle || 'disc';
   
   const formatText = (content: string) => {
-    const parts = content.split(/(\*\*.*?\*\*)/g);
+    // Improved formatter to handle links, bold, and italics in one pass
+    const parts = content.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+      }
+      const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (linkMatch) {
+        return <a key={i} href={linkMatch[2]} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer">{linkMatch[1]}</a>;
       }
       return part;
     });
@@ -44,6 +50,7 @@ const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme; pref
   const getListBullet = () => {
     if (listStyle === 'circle') return '○';
     if (listStyle === 'square') return '■';
+    if (listStyle === 'star') return '★';
     return '•';
   };
 
@@ -52,18 +59,25 @@ const MarkdownLite: React.FC<{ text: string; dark?: boolean; theme?: Theme; pref
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (trimmed === '') return <div key={i} className="h-2" />;
+        
         if (trimmed.startsWith('### ')) return <h3 key={i} className="text-base font-bold mt-4 mb-2">{formatText(trimmed.slice(4))}</h3>;
         if (trimmed.startsWith('## ')) return <h2 key={i} className="text-lg font-bold mt-6 mb-3 border-b pb-1 border-current opacity-20">{formatText(trimmed.slice(3))}</h2>;
-        if (trimmed.startsWith('# ')) return <h1 key={i} className="text-xl font-bold mt-8 mb-4 border-b-2 pb-2 uppercase tracking-tight border-current opacity-80">{formatText(trimmed.slice(2))}</h1>;
+        if (trimmed.startsWith('# ')) return <h1 key={i} className="text-xl font-bold mt-2 mb-4 border-b-2 pb-2 uppercase tracking-tight border-current opacity-80 text-center">{formatText(trimmed.slice(2))}</h1>;
+        
+        // Custom formatting for Job Title | Company *Dates* lines
+        if (trimmed.startsWith('#### ')) {
+           return <h4 key={i} className="text-sm font-bold mt-3 mb-1">{formatText(trimmed.slice(5))}</h4>;
+        }
+
         if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
           return (
             <div key={i} className="flex gap-2 ml-4">
-              <span className="opacity-50">{getListBullet()}</span>
+              <span className="opacity-50 flex-shrink-0">{getListBullet()}</span>
               <span className="flex-1">{formatText(trimmed.slice(2))}</span>
             </div>
           );
         }
-        return <p key={i} className="leading-relaxed mb-2">{formatText(line)}</p>;
+        return <p key={i} className="leading-relaxed mb-1">{formatText(line)}</p>;
       })}
     </div>
   );
@@ -136,7 +150,7 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
   };
 
   const updatePrefs = (newPrefs: Partial<StylePrefs>) => {
-    updateSession(activeSessionId, { stylePrefs: { ...stylePrefs, ...newPrefs } });
+    updateSession(activeSessionId, { stylePrefs: { ...stylePrefs, ...newPrefs } as any });
   };
 
   const exportPDF = () => {
@@ -144,7 +158,7 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
     const element = document.querySelector('.printable-area');
     const opt = { 
       margin: 10, 
-      filename: `Resume_${activeSession.title}.pdf`, 
+      filename: `Resume_${activeSession.title.replace(/\s+/g, '_')}.pdf`, 
       html2canvas: { scale: 2 }, 
       jsPDF: { unit: 'mm', format: 'a4' } 
     };
@@ -156,23 +170,18 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
     if (!activeSession.finalResume) return;
     setIsExporting(true);
     try {
-      const paragraphs = activeSession.finalResume.split('\n').map(line => {
-        return new Paragraph({
-          children: [new TextRun(line)],
-          spacing: { after: 120 }
-        });
-      });
+      const children = parseMarkdownToDocx(activeSession.finalResume);
       const doc = new Document({
         sections: [{
           properties: {},
-          children: paragraphs,
+          children: children,
         }],
       });
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Resume_${activeSession.title}.docx`;
+      link.download = `Resume_${activeSession.title.replace(/\s+/g, '_')}.docx`;
       link.click();
     } catch (e) {
       console.error(e);
@@ -214,8 +223,8 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
                 </button>
                 {activeStylePopover === 'font' && (
                   <div className={`absolute bottom-full left-0 mb-3 w-48 p-2 rounded-2xl shadow-2xl border ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'}`}>
-                     {[{id:'font-sans',label:'Inter'},{id:'font-serif',label:'Garamond'},{id:'font-mono',label:'Roboto'},{id:'font-arial',label:'Arial'}].map(f=>(
-                       <button key={f.id} onClick={()=>{updatePrefs({font:f.id});setActiveStylePopover(null)}} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold ${stylePrefs.font===f.id?'bg-indigo-600 text-white':'hover:bg-slate-100 dark:hover:bg-white/10'}`}>{f.label}</button>
+                     {[{id:'font-sans',label:'Inter'},{id:'font-serif',label:'Garamond'},{id:'font-mono',label:'Roboto'},{id:'font-arial',label:'Arial'},{id:'font-times',label:'Times New'}].map(f=>(
+                       <button key={f.id} onClick={()=>{updatePrefs({font:f.id as any});setActiveStylePopover(null)}} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold ${stylePrefs.font===f.id?'bg-indigo-600 text-white':'hover:bg-slate-100 dark:hover:bg-white/10'}`}>{f.label}</button>
                      ))}
                   </div>
                 )}
@@ -227,7 +236,7 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
                 </button>
                 {activeStylePopover === 'list' && (
                   <div className={`absolute bottom-full left-0 mb-3 w-32 p-2 rounded-2xl shadow-2xl border ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'}`}>
-                     {['disc','circle','square'].map(l=>(
+                     {['disc','circle','square', 'star'].map(l=>(
                        <button key={l} onClick={()=>{updatePrefs({listStyle:l as any});setActiveStylePopover(null)}} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold capitalize ${stylePrefs.listStyle===l?'bg-indigo-600 text-white':'hover:bg-slate-100 dark:hover:bg-white/10'}`}>{l}</button>
                      ))}
                   </div>
@@ -250,7 +259,7 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
           </button>
           <div className="flex flex-col">
             <h2 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}>Resume Builder</h2>
-            <p className={`text-[10px] md:text-xs opacity-50 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>Sculpting a high-impact, ATS-optimized resume.</p>
+            <p className={`text-[10px] md:text-xs opacity-50 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>Creating a high-impact, professional resume.</p>
           </div>
         </div>
         {(activeSession.jobDescription || userProfile?.baseResumeText) && (
