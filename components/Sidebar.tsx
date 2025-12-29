@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   Search, 
@@ -69,6 +69,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
   
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleSubmenu = (key: string) => {
     if (isCollapsed && !isMobileOpen) {
@@ -104,6 +115,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (typeKey === 'resignation') return s.type === 'resignation-letter';
       return false;
     });
+
+    const docType = label.replace(' Builder', '').toLowerCase();
 
     return (
       <div className="space-y-1">
@@ -156,13 +169,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === s.id ? null : s.id); }}
-                    className="opacity-0 group-hover/item:opacity-100 p-1 text-slate-400 hover:text-indigo-500 transition-all"
+                    className={`p-1 text-slate-400 hover:text-indigo-500 transition-all ${activeMenuId === s.id ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}
                   >
                     <MoreHorizontal size={12} />
                   </button>
 
                   {activeMenuId === s.id && (
-                    <div className={`absolute left-0 mt-8 sm:left-full sm:mt-0 sm:ml-2 z-[100] w-36 border rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 backdrop-blur-md ${theme === 'dark' ? 'bg-[#1a1a1a]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}>
+                    <div 
+                      ref={menuRef}
+                      className={`absolute right-0 top-full mt-1 z-[100] w-36 border rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 backdrop-blur-md ${theme === 'dark' ? 'bg-[#1a1a1a]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}
+                    >
                       <button onClick={() => handleRename(s.id, s.title)} className="w-full flex items-center gap-2.5 p-2 rounded-xl text-[11px] font-bold hover:bg-indigo-600 hover:text-white transition-colors">
                         <Edit2 size={13} /> Rename
                       </button>
@@ -178,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onClick={(e) => { e.stopPropagation(); onPlusClick?.(); }}
                 className={`w-full text-left p-3 rounded-xl text-[10px] leading-relaxed transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-slate-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
               >
-                You haven’t created a {label.toLowerCase()} yet. <span className="underline font-bold">Click + icon or here to begin.</span>
+                You haven’t created a {docType} yet. <span className="underline font-bold">Click + icon or here to begin.</span>
               </button>
             )}
           </div>
