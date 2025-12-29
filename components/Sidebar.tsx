@@ -20,7 +20,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Trash2,
-  Edit2
+  Edit2,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { AppView, ChatSession, Theme } from '../types';
 
@@ -69,7 +71,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
   
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  
   const menuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -81,6 +88,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (renamingId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingId]);
+
   const toggleSubmenu = (key: string) => {
     if (isCollapsed && !isMobileOpen) {
       setIsCollapsed(false);
@@ -90,17 +104,34 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const handleRename = (id: string, currentTitle: string) => {
-    const newTitle = prompt('Enter new title:', currentTitle);
-    if (newTitle) onRenameSession(id, newTitle);
+  const startRename = (id: string, currentTitle: string) => {
+    setRenamingId(id);
+    setRenameValue(currentTitle);
     setActiveMenuId(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this chat permanently? This action cannot be undone.')) {
-      onDeleteSession(id);
+  const submitRename = () => {
+    if (renamingId && renameValue.trim()) {
+      onRenameSession(renamingId, renameValue.trim());
     }
-    setActiveMenuId(null);
+    setRenamingId(null);
+  };
+
+  const confirmDelete = () => {
+    if (deletingId) {
+      onDeleteSession(deletingId);
+      setDeletingId(null);
+    }
+  };
+
+  const getDocTypeName = (typeKey: string) => {
+    switch(typeKey) {
+      case 'resume': return 'resume';
+      case 'letter': return 'cover letter';
+      case 'resignation': return 'resignation letter';
+      case 'copilot': return 'career roadmap';
+      default: return 'chat';
+    }
   };
 
   const renderNavButton = (id: AppView, label: string, icon: React.ReactNode, typeKey?: string, onPlusClick?: () => void) => {
@@ -116,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       return false;
     });
 
-    const docType = label.replace(' Builder', '').toLowerCase();
+    const docType = getDocTypeName(typeKey || '');
 
     return (
       <div className="space-y-1">
@@ -160,29 +191,45 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="ml-9 mt-1 space-y-1 border-l border-slate-200 dark:border-white/10 pl-3">
             {filteredSessions.length > 0 ? (
               filteredSessions.map(s => (
-                <div key={s.id} className="group/item flex items-center relative">
-                  <button 
-                    onClick={() => { setActiveSessionId(s.id); setView(id); if(isMobileOpen) setIsMobileOpen(false); }}
-                    className={`flex-1 text-left p-2 rounded-md text-[11px] truncate transition-all ${activeSessionId === s.id && currentView === id ? (theme === 'dark' ? 'text-white bg-white/5 font-semibold' : 'text-[#0F172A] bg-slate-100 font-bold') : (theme === 'dark' ? 'text-[#a0a0a0] hover:text-white' : 'text-slate-500 hover:text-slate-900')}`}
-                  >
-                    {s.title}
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === s.id ? null : s.id); }}
-                    className={`p-1 text-slate-400 hover:text-indigo-500 transition-all ${activeMenuId === s.id ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}
-                  >
-                    <MoreHorizontal size={12} />
-                  </button>
+                <div key={s.id} className="group/item flex items-center relative pr-2">
+                  {renamingId === s.id ? (
+                    <input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={submitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitRename();
+                        if (e.key === 'Escape') setRenamingId(null);
+                      }}
+                      className={`flex-1 bg-transparent border-b border-indigo-500 outline-none text-[11px] py-1 transition-all ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`}
+                    />
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => { setActiveSessionId(s.id); setView(id); if(isMobileOpen) setIsMobileOpen(false); }}
+                        className={`flex-1 text-left p-2 rounded-md text-[11px] truncate transition-all ${activeSessionId === s.id && currentView === id ? (theme === 'dark' ? 'text-white bg-white/5 font-semibold' : 'text-[#0F172A] bg-slate-100 font-bold') : (theme === 'dark' ? 'text-[#a0a0a0] hover:text-white' : 'text-slate-500 hover:text-slate-900')}`}
+                      >
+                        {s.title}
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === s.id ? null : s.id); }}
+                        className={`p-1 text-slate-400 hover:text-indigo-500 transition-all ${activeMenuId === s.id ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}
+                      >
+                        <MoreHorizontal size={12} />
+                      </button>
+                    </>
+                  )}
 
                   {activeMenuId === s.id && (
                     <div 
                       ref={menuRef}
-                      className={`absolute right-0 top-full mt-1 z-[100] w-36 border rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 backdrop-blur-md ${theme === 'dark' ? 'bg-[#1a1a1a]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}
+                      className={`absolute right-0 top-full mt-1 z-[110] w-36 border rounded-2xl shadow-2xl p-1.5 animate-in zoom-in-95 backdrop-blur-md ${theme === 'dark' ? 'bg-[#1a1a1a]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}
                     >
-                      <button onClick={() => handleRename(s.id, s.title)} className="w-full flex items-center gap-2.5 p-2 rounded-xl text-[11px] font-bold hover:bg-indigo-600 hover:text-white transition-colors">
+                      <button onClick={() => startRename(s.id, s.title)} className="w-full flex items-center gap-2.5 p-2 rounded-xl text-[11px] font-bold hover:bg-indigo-600 hover:text-white transition-colors">
                         <Edit2 size={13} /> Rename
                       </button>
-                      <button onClick={() => handleDelete(s.id)} className="w-full flex items-center gap-2.5 p-2 rounded-xl text-[11px] font-bold text-red-500 hover:bg-red-500 hover:text-white transition-colors">
+                      <button onClick={() => { setDeletingId(s.id); setActiveMenuId(null); }} className="w-full flex items-center gap-2.5 p-2 rounded-xl text-[11px] font-bold text-red-500 hover:bg-red-500 hover:text-white transition-colors">
                         <Trash2 size={13} /> Delete
                       </button>
                     </div>
@@ -192,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <button 
                 onClick={(e) => { e.stopPropagation(); onPlusClick?.(); }}
-                className={`w-full text-left p-3 rounded-xl text-[10px] leading-relaxed transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-slate-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                className={`w-[calc(100%-0.5rem)] text-left p-3 rounded-xl text-[10px] leading-relaxed transition-all mb-1 ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-slate-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
               >
                 You haven’t created a {docType} yet. <span className="underline font-bold">Click + icon or here to begin.</span>
               </button>
@@ -211,6 +258,37 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
+      {/* Delete Confirmation Modal */}
+      {deletingId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-sm bg-black/40 animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm rounded-[32px] border p-8 shadow-2xl animate-in zoom-in-95 duration-200 ${theme === 'dark' ? 'bg-[#1a1a1a] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-6">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Delete Chat?</h3>
+              <p className={`text-sm mb-8 leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                This action is permanent and cannot be undone. Are you sure you want to delete this session?
+              </p>
+              <div className="flex w-full gap-3">
+                <button 
+                  onClick={() => setDeletingId(null)}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${theme === 'dark' ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'}`}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isMobileOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileOpen(false)} />}
       <aside className={`fixed inset-y-0 left-0 z-50 transition-all duration-300 md:relative md:translate-x-0 flex flex-col no-print ${theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0] shadow-xl md:shadow-none'} border-r ${isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'} ${isCollapsed && !isMobileOpen ? 'md:w-20' : 'md:w-72'}`}>
         <div className={`p-6 flex items-center justify-between ${isCollapsed && !isMobileOpen ? 'md:justify-center' : ''}`}>
