@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, FileText, Download, Eye, Clock, Grid, List as ListIcon, Filter, Search, ChevronRight, Mail, DoorOpen, File } from 'lucide-react';
+import { Menu, FileText, Download, Eye, Clock, Grid, List as ListIcon, Filter, Search, ChevronRight, Mail, DoorOpen, File, X } from 'lucide-react';
 import { ChatSession, Theme } from '../types';
 
 interface DocumentsProps {
@@ -9,14 +9,6 @@ interface DocumentsProps {
   sessions: ChatSession[];
   onSelectSession: (id: string) => void;
 }
-
-const CustomMenuIcon = ({ className }: { className?: string }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <path d="M4 6H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
 
 const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, onSelectSession }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -46,8 +38,8 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
     <div className={`flex flex-col h-full transition-colors ${theme === 'dark' ? 'bg-[#121212]' : 'bg-slate-50'}`}>
       <header className={`p-4 md:p-6 border-b flex items-center justify-between sticky top-0 z-10 transition-colors ${bgClass} ${borderClass}`}>
         <div className="flex items-center gap-3">
-          <button onClick={onToggleMobile} className="md:hidden">
-            <CustomMenuIcon className={textPrimary} />
+          <button onClick={onToggleMobile} className="md:hidden p-2 -ml-2 text-indigo-500 transition-colors">
+            <Menu size={24} />
           </button>
           <div>
             <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Documents</h2>
@@ -80,13 +72,13 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
               {[
                 { id: 'all', label: 'All Files' },
                 { id: 'resume', label: 'Resumes' },
-                { id: 'cover-letter', label: 'Cover Letters' },
+                { id: 'cover-letter', label: 'Letters' },
                 { id: 'resignation-letter', label: 'Resignations' }
               ].map(item => (
                 <button
                   key={item.id}
                   onClick={() => setFilter(item.id as any)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                  className={`px-4 py-2 rounded-full text-[11px] md:text-xs font-bold transition-all border ${
                     filter === item.id 
                       ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
                       : `${theme === 'dark' ? 'border-white/5 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`
@@ -128,7 +120,7 @@ const Documents: React.FC<DocumentsProps> = ({ onToggleMobile, theme, sessions, 
                     theme === 'dark' ? 'bg-[#191919] border-white/10 hover:border-indigo-500/50' : 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md'
                   }`}
                 >
-                  <div className={`aspect-[3/4] p-6 relative overflow-hidden flex flex-col ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
+                  <div className={`aspect-[3/4] p-4 md:p-6 relative overflow-hidden flex flex-col ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <div className="w-full h-full bg-white text-black p-4 text-[4px] leading-tight select-none opacity-40 overflow-hidden transform group-hover:scale-105 transition-transform rounded shadow-sm">
                        {session.finalResume}
                     </div>

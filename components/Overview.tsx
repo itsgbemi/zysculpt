@@ -10,7 +10,8 @@ import {
   Calendar as CalendarIcon,
   Circle,
   Layout,
-  Search
+  Search,
+  Menu
 } from 'lucide-react';
 import { AppView, ChatSession, Theme, DailyLog, UserProfile, ScheduledTask } from '../types';
 import { ZysculptLogo } from './Sidebar';
@@ -103,7 +104,9 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
     <div className={`flex flex-col h-full transition-colors ${theme === 'dark' ? 'bg-[#191919]' : 'bg-[#F8FAFC]'}`}>
       <header className={`p-4 md:p-6 border-b flex items-center justify-between sticky top-0 z-10 transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={onToggleMobile} className="md:hidden text-indigo-500"><Layout size={24} /></button>
+          <button onClick={onToggleMobile} className="md:hidden p-2 -ml-2 text-indigo-500 transition-colors">
+            <Menu size={24} />
+          </button>
           <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Overview</h2>
         </div>
       </header>
@@ -111,11 +114,11 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
       <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-6xl mx-auto w-full">
         {!isOnboarded ? (
           <div className="mb-12">
-            <div className={`p-8 rounded-[40px] border-2 border-dashed ${theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50/50 border-indigo-200'}`}>
+            <div className={`p-6 md:p-8 rounded-[32px] md:rounded-[40px] border-2 border-dashed ${theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50/50 border-indigo-200'}`}>
               <div className="flex flex-col md:flex-row gap-8 items-center">
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   <h1 className={`text-2xl md:text-3xl font-extrabold mb-4 ${textPrimary}`}>Welcome to Zysculpt</h1>
-                  <p className={`text-lg mb-6 leading-relaxed ${textSecondary}`}>Complete these steps to unlock your full AI potential.</p>
+                  <p className={`text-base md:text-lg mb-6 leading-relaxed ${textSecondary}`}>Complete these steps to unlock your full AI potential.</p>
                   <div className="space-y-3">
                     {[
                       { l: 'Fill Personal Information', c: !!userProfile.fullName, v: AppView.SETTINGS },
@@ -123,8 +126,8 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
                       { l: 'Start a Career Roadmap', c: !!activeGoalSession, v: AppView.CAREER_COPILOT }
                     ].map((task, idx) => (
                       <button key={idx} onClick={() => setView(task.v)} className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all ${task.c ? 'opacity-50' : 'hover:translate-x-1'} ${cardBg}`}>
-                        {task.c ? <CheckCircle2 className="text-emerald-500" size={18} /> : <Circle className="text-slate-300" size={18} />}
-                        <span className={`text-sm font-bold ${textPrimary} ${task.c ? 'line-through' : ''}`}>{task.l}</span>
+                        {task.c ? <CheckCircle2 className="text-emerald-500 flex-shrink-0" size={18} /> : <Circle className="text-slate-300 flex-shrink-0" size={18} />}
+                        <span className={`text-sm font-bold text-left ${textPrimary} ${task.c ? 'line-through' : ''}`}>{task.l}</span>
                       </button>
                     ))}
                   </div>
@@ -133,22 +136,22 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
             </div>
           </div>
         ) : (
-          <div className="mb-12 animate-in fade-in duration-700">
+          <div className="mb-8 md:mb-12 animate-in fade-in duration-700">
             <div className="flex items-center gap-4 mb-2">
-               <ZysculptLogo theme={theme} size={48} />
-               <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${textPrimary}`}>Welcome, {userProfile.fullName.split(' ')[0]}.</h1>
+               <ZysculptLogo theme={theme} size={40} />
+               <h1 className={`text-2xl md:text-4xl font-extrabold tracking-tight ${textPrimary}`}>Welcome, {userProfile.fullName.split(' ')[0]}.</h1>
             </div>
-            <p className={`${textSecondary} font-medium`}>Ready to sculpt your professional future today?</p>
+            <p className={`${textSecondary} font-medium text-sm md:text-base`}>Ready to sculpt your professional future today?</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-12">
           <div className="lg:col-span-2 space-y-6">
-            <div className={`p-8 rounded-[32px] border ${cardBg}`}>
+            <div className={`p-6 md:p-8 rounded-[24px] md:rounded-[32px] border ${cardBg}`}>
               <div className="flex items-center justify-between mb-8">
-                <h3 className={`text-lg font-bold flex items-center gap-2 ${textPrimary}`}><CalendarIcon size={20} className="text-indigo-500" /> {currentMonth}</h3>
+                <h3 className={`text-base md:text-lg font-bold flex items-center gap-2 ${textPrimary}`}><CalendarIcon size={20} className="text-indigo-500" /> {currentMonth}</h3>
               </div>
-              <div className="grid grid-cols-7 gap-y-4 text-center">
+              <div className="grid grid-cols-7 gap-y-3 md:gap-y-4 text-center">
                 {['S','M','T','W','T','F','S'].map(d => <div key={d} className="text-[10px] font-bold opacity-30">{d}</div>)}
                 {calendarDays.map((day, i) => {
                   if (!day) return <div key={i} />;
@@ -158,7 +161,7 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
                   const isSelected = selectedDay === day;
 
                   return (
-                    <button key={i} onClick={() => setSelectedDay(day)} className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all
+                    <button key={i} onClick={() => setSelectedDay(day)} className={`w-8 h-8 md:w-10 md:h-10 mx-auto rounded-lg md:rounded-xl flex items-center justify-center text-[11px] md:text-xs font-bold transition-all
                       ${isSelected ? 'scale-110 shadow-xl z-10' : ''}
                       ${isToday ? 'bg-indigo-600 text-white' : hasLog ? 'bg-emerald-500 text-white' : isSelected ? 'bg-indigo-100 text-indigo-900 border-2 border-indigo-500' : 'hover:bg-slate-100 dark:hover:bg-white/5'}
                     `}>{day}</button>
@@ -167,9 +170,9 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
               </div>
             </div>
 
-            <div className={`p-8 rounded-[32px] border ${cardBg}`}>
+            <div className={`p-6 md:p-8 rounded-[24px] md:rounded-[32px] border ${cardBg}`}>
                <div className="flex items-center justify-between mb-6">
-                 <h3 className={`text-lg font-bold ${textPrimary}`}>Plan for Day {selectedDay}</h3>
+                 <h3 className={`text-base md:text-lg font-bold ${textPrimary}`}>Plan for Day {selectedDay}</h3>
                  <Target size={20} className="text-indigo-500" />
                </div>
                <div className="space-y-4">
@@ -190,10 +193,10 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
           </div>
 
           <div className="space-y-6">
-            <div className={`p-6 rounded-3xl border min-h-[160px] flex flex-col transition-all duration-500 ${theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
+            <div className={`p-6 rounded-3xl border min-h-[140px] flex flex-col transition-all duration-500 ${theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
               <div className="flex items-center gap-2 mb-4 text-indigo-500">
                 <Lightbulb size={18} />
-                <h4 className="text-xs font-bold uppercase tracking-widest">Growth Tip</h4>
+                <h4 className="text-[10px] font-bold uppercase tracking-widest">Growth Tip</h4>
               </div>
               <p className={`text-sm leading-relaxed ${textPrimary} font-medium`}>
                 "{PRO_TIPS[tipIndex]}"
@@ -203,9 +206,9 @@ const Overview: React.FC<OverviewProps> = ({ onToggleMobile, theme, sessions, se
             <div className="space-y-3">
               <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-40 px-2">Quick Actions</h2>
               {[
-                { label: 'Resume Builder', view: AppView.RESUME_BUILDER, icon: <FileText />, color: 'bg-emerald-500' },
-                { label: 'Find a Job', view: AppView.FIND_JOB, icon: <Search />, color: 'bg-indigo-500' },
-                { label: 'Skill Lab', view: AppView.KNOWLEDGE_HUB, icon: <Zap />, color: 'bg-orange-500' },
+                { label: 'Resume Builder', view: AppView.RESUME_BUILDER, icon: <FileText size={18} />, color: 'bg-emerald-500' },
+                { label: 'Find a Job', view: AppView.FIND_JOB, icon: <Search size={18} />, color: 'bg-indigo-500' },
+                { label: 'Skill Lab', view: AppView.KNOWLEDGE_HUB, icon: <Zap size={18} />, color: 'bg-orange-500' },
               ].map((action, i) => (
                 <button key={i} onClick={() => setView(action.view)} className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all group ${cardBg} hover:border-indigo-500`}>
                   <div className={`p-2.5 rounded-xl text-white ${action.color}`}>{action.icon}</div>

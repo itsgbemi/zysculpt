@@ -22,7 +22,8 @@ import {
   Trash2,
   Edit2,
   X,
-  AlertCircle
+  AlertCircle,
+  Menu
 } from 'lucide-react';
 import { AppView, ChatSession, Theme } from '../types';
 
@@ -57,11 +58,13 @@ interface SidebarProps {
   onNewSession: (type?: 'resume' | 'cover-letter' | 'resignation-letter' | 'career-copilot') => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, title: string) => void;
+  onLogout?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   currentView, setView, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, 
-  theme, toggleTheme, sessions, activeSessionId, setActiveSessionId, onNewSession, onDeleteSession, onRenameSession
+  theme, toggleTheme, sessions, activeSessionId, setActiveSessionId, onNewSession, onDeleteSession, onRenameSession,
+  onLogout
 }) => {
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     resume: true,
@@ -238,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               ))
             ) : (
               <button 
-                onClick={(e) => { e.stopPropagation(); onPlusClick?.(); }}
+                onClick={(e) => { e.stopPropagation(); onPlusClick?.(); if(isMobileOpen) setIsMobileOpen(false); }}
                 className={`w-[calc(100%-0.5rem)] text-left p-3 rounded-xl text-[10px] leading-relaxed transition-all mb-1 ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-slate-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
               >
                 You haven’t created a {docType} yet. <span className="underline font-bold">Click + icon or here to begin.</span>
@@ -251,8 +254,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleLogout = () => {
-    if (confirm("Sign out and refresh session?")) {
-      window.location.reload();
+    if (onLogout) {
+      onLogout();
+    } else {
+      if (confirm("Sign out and refresh session?")) {
+        window.location.reload();
+      }
     }
   };
 
@@ -292,10 +299,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       {isMobileOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileOpen(false)} />}
       <aside className={`fixed inset-y-0 left-0 z-50 transition-all duration-300 md:relative md:translate-x-0 flex flex-col no-print ${theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0] shadow-xl md:shadow-none'} border-r ${isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'} ${isCollapsed && !isMobileOpen ? 'md:w-20' : 'md:w-72'}`}>
         <div className={`p-6 flex items-center justify-between ${isCollapsed && !isMobileOpen ? 'md:justify-center' : ''}`}>
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView(AppView.OVERVIEW)}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setView(AppView.OVERVIEW); if(isMobileOpen) setIsMobileOpen(false); }}>
             <ZysculptLogo theme={theme} size={32} />
             {(!isCollapsed || isMobileOpen) && <span className={`text-2xl font-extrabold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#0F172A]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>zysculpt</span>}
           </div>
+          {isMobileOpen && (
+            <button onClick={() => setIsMobileOpen(false)} className={`md:hidden p-2 rounded-full ${theme === 'dark' ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-slate-100'}`}>
+              <X size={20} />
+            </button>
+          )}
         </div>
         
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-2 custom-scrollbar">

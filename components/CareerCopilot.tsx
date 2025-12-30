@@ -13,7 +13,10 @@ import {
   TrendingUp,
   Award,
   Calendar,
-  Sparkles
+  Sparkles,
+  Mic,
+  Square,
+  Menu
 } from 'lucide-react';
 import { Message, ChatSession, Theme, ScheduledTask, UserProfile } from '../types';
 import { geminiService } from '../services/gemini';
@@ -35,6 +38,12 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,16 +51,64 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeSession.messages, isTyping]);
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isTyping) return;
-    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: inputValue, timestamp: Date.now() };
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Audio = (reader.result as string).split(',')[1];
+          handleSend(base64Audio);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      alert("Please allow microphone access to record voice messages.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleSend = async (audioData?: string) => {
+    if (!inputValue.trim() && !audioData && !isTyping) return;
+    
+    const contentText = audioData ? (inputValue.trim() ? `${inputValue} [Voice Message]` : "[Voice Message]") : inputValue;
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: contentText, timestamp: Date.now() };
     const newMessages = [...activeSession.messages, userMessage];
     updateSession(activeSessionId, { messages: newMessages });
     setInputValue('');
     setIsTyping(true);
 
     try {
-      const responseStream = await geminiService.generateChatResponse(newMessages, inputValue, { type: 'career-copilot', userProfile });
+      const context: any = { type: 'career-copilot', userProfile };
+      if (audioData) {
+        context.audioPart = { inlineData: { data: audioData, mimeType: 'audio/webm' } };
+      }
+
+      const responseStream = await geminiService.generateChatResponse(
+        newMessages.slice(0, -1), 
+        inputValue, 
+        context
+      );
+      
       let assistantResponse = '';
       const assistantId = (Date.now() + 1).toString();
       updateSession(activeSessionId, { messages: [...newMessages, { id: assistantId, role: 'assistant', content: '', timestamp: Date.now() }] });
@@ -108,10 +165,8 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
     <div className={`flex flex-col h-full transition-colors ${theme === 'dark' ? 'bg-[#191919]' : 'bg-[#F8FAFC]'}`}>
       <header className={`p-4 md:p-6 border-b flex items-center justify-between sticky top-0 z-10 transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={onToggleMobile} className="md:hidden">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={textPrimary}>
-              <path d="M4 6H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+          <button onClick={onToggleMobile} className="md:hidden p-2 -ml-2 text-indigo-500 transition-colors">
+            <Menu size={24} />
           </button>
           <div className="flex flex-col">
             <h2 className={`text-lg md:text-xl font-bold ${textPrimary}`}>Career Copilot</h2>
@@ -121,17 +176,18 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
         <button 
           onClick={handleGeneratePlan} 
           disabled={isGeneratingPlan}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 text-xs md:text-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-indigo-600 text-white rounded-full font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 text-xs md:text-sm disabled:opacity-50"
         >
           {isGeneratingPlan ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} 
-          {activeSession.careerGoalData ? 'Re-generate Plan' : 'Generate 30-Day Plan'}
+          <span className="hidden sm:inline">{activeSession.careerGoalData ? 'Re-generate Plan' : 'Generate 30-Day Plan'}</span>
+          <span className="sm:hidden">Plan</span>
         </button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
         {activeSession.messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm border ${
+            <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm border relative group ${
               m.role === 'user' 
                 ? theme === 'dark' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[#E0E7FF] text-slate-900 border-[#C7D2FE]' 
                 : theme === 'dark' ? 'bg-[#2a2a2a] text-white border-[#444]' : 'bg-white text-slate-900 border-slate-200'
@@ -154,20 +210,32 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
       </div>
 
       <div className={`p-4 md:p-6 border-t transition-colors ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
-        <div className="max-w-4xl mx-auto relative group">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder="Tell the Copilot about your career goal..."
-            className={`w-full border rounded-2xl p-4 pr-16 min-h-[60px] max-h-[200px] transition-all resize-none text-sm md:text-base outline-none ${
-              theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a] text-white focus:border-white' : 'bg-slate-50 border-[#e2e8f0] text-[#0F172A] focus:border-indigo-400'
-            }`}
-            rows={1}
-          />
-          <div className="absolute right-3 bottom-3 flex items-center gap-2">
-            <button onClick={handleSend} disabled={!inputValue.trim() || isTyping} className="p-2 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors shadow-md disabled:opacity-30"><Send size={18} /></button>
+        <div className="max-w-4xl mx-auto flex items-center gap-3">
+          <div className="flex-1 relative">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder={isRecording ? "Recording..." : "Tell the Copilot about your career goal..."}
+              disabled={isRecording}
+              className={`w-full border rounded-2xl p-4 pr-12 min-h-[60px] max-h-[200px] transition-all resize-none text-sm md:text-base outline-none ${
+                theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a] text-white focus:border-white' : 'bg-slate-50 border-[#e2e8f0] text-[#0F172A] focus:border-indigo-400'
+              } ${isRecording ? 'opacity-50 animate-pulse' : ''}`}
+              rows={1}
+            />
+            <button 
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:text-indigo-500 hover:bg-white/5'}`}
+            >
+              {isRecording ? <Square size={18} /> : <Mic size={18} />}
+            </button>
           </div>
+          <button onClick={() => handleSend()} disabled={!inputValue.trim() || isTyping || isRecording} className="p-4 bg-indigo-500 text-white rounded-2xl hover:bg-indigo-600 transition-colors shadow-md disabled:opacity-30">
+            <Send size={18} />
+          </button>
         </div>
       </div>
     </div>

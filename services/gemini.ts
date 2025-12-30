@@ -18,7 +18,8 @@ export class GeminiService {
       jobDescription?: string, 
       resumeText?: string, 
       type?: 'resume' | 'cover-letter' | 'resignation-letter' | 'career-copilot',
-      userProfile?: UserProfile 
+      userProfile?: UserProfile,
+      audioPart?: { inlineData: { data: string, mimeType: string } }
     }
   ) {
     const type = context?.type || 'resume';
@@ -45,18 +46,37 @@ export class GeminiService {
     5. When ready, offer to "generate" the final document.
     ${type === 'resignation-letter' ? 'Focus on professionalism, gratitude (if applicable), and clear exit details like notice period.' : ''}
     ${type === 'career-copilot' ? 'Focus on career progression, skill mapping, and breaking down yearly goals into actionable daily targets.' : ''}
+    
+    If the user provides audio, it is a voice message. Acknowledge what they said.
     `;
 
-    const chat = this.ai.chats.create({
-      model: MODEL_NAME,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
-    
+    // Convert history to Gemini format (model instead of assistant)
+    const contents = history.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    }));
+
+    // Add current turn
+    const currentParts: any[] = [];
+    if (context?.audioPart) {
+      currentParts.push(context.audioPart);
+    }
+    // Only add text part if there's message content or if there's no audio
+    if (currentMessage.trim() || !context?.audioPart) {
+      currentParts.push({ text: currentMessage || "I've sent a voice message." });
+    }
+
+    contents.push({ role: 'user', parts: currentParts });
+
     try {
-      const response = await chat.sendMessageStream({ message: currentMessage });
+      const response = await this.ai.models.generateContentStream({
+        model: MODEL_NAME,
+        contents: contents as any,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
       return response;
     } catch (error) {
       console.error("Gemini API Error:", error);

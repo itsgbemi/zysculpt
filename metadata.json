@@ -1,5 +1,7 @@
 {
   "name": "Zysculpt - AI Career Copilot",
   "description": "Zysculpt is an AI-powered career copilot that helps job seekers tailor CVs, resumes, and cover letters to specific jobs while tracking long-term career goals with daily accountability.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
