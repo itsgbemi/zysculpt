@@ -20,6 +20,8 @@ export interface UserProfile {
   phone: string;
   location: string;
   linkedIn: string;
+  github?: string;
+  portfolio?: string;
   baseResumeText: string;
   dailyAvailability: number; // Hours per day
 }

@@ -13,7 +13,6 @@ import KnowledgeHub from './components/KnowledgeHub';
 import { Auth } from './components/Auth';
 import { AppView, ChatSession, Theme, UserProfile } from './types';
 import { supabase } from './services/supabase';
-// Fix: Import Sparkles icon from lucide-react
 import { Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -32,6 +31,8 @@ const App: React.FC = () => {
     phone: '',
     location: '',
     linkedIn: '',
+    github: '',
+    portfolio: '',
     baseResumeText: '',
     dailyAvailability: 2
   });
@@ -59,7 +60,6 @@ const App: React.FC = () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       // @ts-ignore
       await window.aistudio.openSelectKey();
-      // Proceed immediately as per guidelines
       setKeyPickerVisible(false);
     }
   };
@@ -75,6 +75,8 @@ const App: React.FC = () => {
         phone: profile.phone,
         location: profile.location,
         linkedin: profile.linkedIn,
+        github: profile.github,
+        portfolio: profile.portfolio,
         base_resume_text: profile.baseResumeText,
         daily_availability: profile.dailyAvailability,
         updated_at: new Date().toISOString()
@@ -94,7 +96,6 @@ const App: React.FC = () => {
         type: chatSession.type,
         messages: chatSession.messages,
         job_description: chatSession.jobDescription,
-        // Fix: Correct camelCase property names from ChatSession interface
         resume_text: chatSession.resumeText,
         final_resume: chatSession.finalResume,
         career_goal_data: chatSession.careerGoalData,
@@ -141,6 +142,8 @@ const App: React.FC = () => {
           phone: profileRes.data.phone || '',
           location: profileRes.data.location || '',
           linkedIn: profileRes.data.linkedin || '',
+          github: profileRes.data.github || '',
+          portfolio: profileRes.data.portfolio || '',
           baseResumeText: profileRes.data.base_resume_text || '',
           dailyAvailability: profileRes.data.daily_availability || 2
         });

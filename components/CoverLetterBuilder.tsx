@@ -240,7 +240,8 @@ const CoverLetterBuilder: React.FC<CoverLetterBuilderProps> = ({
             setIsTyping(true);
             try {
               const combinedData = `User Background: ${activeSession.resumeText || ''}\nChat context: ${activeSession.messages.map(m => m.content).join('\n')}`;
-              const result = await geminiService.sculptCoverLetter(activeSession.jobDescription || 'Professional Opportunity', combinedData);
+              // Fix: Pass userProfile to ensure strict data output
+              const result = await geminiService.sculptCoverLetter(activeSession.jobDescription || 'Professional Opportunity', combinedData, userProfile);
               updateSession(activeSessionId, { finalResume: result });
               setShowPreview(true);
             } catch (err) { console.error(err); } finally { setIsTyping(false); }

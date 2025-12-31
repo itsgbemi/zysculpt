@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Message, UserProfile } from "../types";
 
@@ -19,6 +20,21 @@ export class GeminiService {
 
     // Strictly following initialization rule: new GoogleGenAI({ apiKey: process.env.API_KEY })
     return new GoogleGenAI({ apiKey: key });
+  }
+
+  private formatProfileHeader(profile?: UserProfile): string {
+    if (!profile) return '';
+    return `
+      CONTACT INFORMATION (MUST BE INCLUDED IN DOCUMENT HEADER):
+      Name: ${profile.fullName}
+      Email: ${profile.email}
+      Phone: ${profile.phone}
+      Location: ${profile.location}
+      LinkedIn: ${profile.linkedIn}
+      GitHub: ${profile.github || ''}
+      Portfolio: ${profile.portfolio || ''}
+      Title: ${profile.title}
+    `;
   }
 
   async generateChatResponse(
@@ -43,12 +59,12 @@ export class GeminiService {
     if (type === 'career-copilot') roleDescription = 'strategic career coach and growth mentor';
     
     const profile = context?.userProfile;
-    const profileContext = profile ? `User Profile: ${profile.fullName}, ${profile.title}. Contact: ${profile.email}, ${profile.phone}. LinkedIn: ${profile.linkedIn}.` : '';
+    const profileHeader = this.formatProfileHeader(profile);
 
     const systemInstruction = `You are Zysculpt AI, a world-class ${roleDescription}.
     Your goal is to help the user build a high-impact, professional ${type.replace('-', ' ')}.
     
-    ${profileContext}
+    ${profileHeader}
 
     CRITICAL INSTRUCTIONS:
     1. Context - Target Info: ${context?.jobDescription || 'Not yet provided.'}
@@ -110,16 +126,30 @@ export class GeminiService {
     return JSON.parse(response.text || '[]');
   }
 
-  async sculptResume(jobDescription: string, userData: string): Promise<string> {
+  async sculptResume(jobDescription: string, userData: string, userProfile?: UserProfile): Promise<string> {
     const ai = this.getClient();
+    const profileHeader = this.formatProfileHeader(userProfile);
+    
     const prompt = `
-      As an ATS expert, take the following Job Description and User Experience data and generate a perfect resume in Markdown format.
+      As an expert ATS Resume Writer, generate a complete, high-impact resume in Markdown format.
       
-      JOB DESCRIPTION:
+      --------------------------
+      USER PROFILE (USE THIS EXACT DATA FOR THE HEADER):
+      ${profileHeader}
+      --------------------------
+      JOB DESCRIPTION (TARGET):
       ${jobDescription}
-      
-      USER DATA/EXPERIENCE:
+      --------------------------
+      USER EXPERIENCE/BACKGROUND DATA:
       ${userData}
+      --------------------------
+      
+      STRICT OUTPUT RULES:
+      1.  OUTPUT ONLY THE RESUME MARKDOWN. DO NOT INCLUDE ANY CONVERSATIONAL TEXT, META-COMMENTARY, OR PREAMBLE LIKE "Here is your resume".
+      2.  Use the Name and Contact Info from the USER PROFILE section at the top. DO NOT USE PLACEHOLDERS if data is available.
+      3.  If specific experience details are missing in the background data, imply them intelligently based on the Job Description but do not leave bracketed placeholders like "[Insert Date]" unless absolutely necessary.
+      4.  Format links as [url](url).
+      5.  Structure: Header -> Professional Summary -> Experience -> Skills -> Education.
     `;
 
     const response = await ai.models.generateContent({
@@ -129,16 +159,29 @@ export class GeminiService {
     return response.text || "Failed to generate resume.";
   }
 
-  async sculptCoverLetter(jobDescription: string, userData: string): Promise<string> {
+  async sculptCoverLetter(jobDescription: string, userData: string, userProfile?: UserProfile): Promise<string> {
     const ai = this.getClient();
+    const profileHeader = this.formatProfileHeader(userProfile);
+
     const prompt = `
-      As a professional recruiter, write a compelling, tailored cover letter based on the Job Description and User Background.
+      As a Senior Recruiter, write a persuasive Cover Letter in Markdown format.
       
-      JOB DESCRIPTION:
+      --------------------------
+      USER PROFILE (SENDER):
+      ${profileHeader}
+      --------------------------
+      JOB DESCRIPTION (RECIPIENT CONTEXT):
       ${jobDescription}
-      
+      --------------------------
       USER BACKGROUND:
       ${userData}
+      --------------------------
+      
+      STRICT OUTPUT RULES:
+      1.  OUTPUT ONLY THE COVER LETTER CONTENT. NO CHAT, NO META-COMMENTARY.
+      2.  Use the Name/Email/Phone from USER PROFILE in the signature and header.
+      3.  Do not use placeholders like "[Your Name]". Use the actual name provided: ${userProfile?.fullName}.
+      4.  Make the tone professional, enthusiastic, and confident.
     `;
 
     const response = await ai.models.generateContent({
@@ -148,16 +191,28 @@ export class GeminiService {
     return response.text || "Failed to generate cover letter.";
   }
 
-  async sculptResignationLetter(exitDetails: string, userData: string): Promise<string> {
+  async sculptResignationLetter(exitDetails: string, userData: string, userProfile?: UserProfile): Promise<string> {
     const ai = this.getClient();
+    const profileHeader = this.formatProfileHeader(userProfile);
+
     const prompt = `
-      As a professional consultant, write a polite and firm resignation letter based on the provided details.
+      Write a professional, formal Resignation Letter in Markdown.
       
+      --------------------------
+      USER PROFILE (SENDER):
+      ${profileHeader}
+      --------------------------
       EXIT DETAILS:
       ${exitDetails}
-      
+      --------------------------
       USER BACKGROUND:
       ${userData}
+      --------------------------
+      
+      STRICT OUTPUT RULES:
+      1.  OUTPUT ONLY THE LETTER. NO CONVERSATIONAL TEXT.
+      2.  Use the actual name from USER PROFILE.
+      3.  Keep the tone polite, firm, and grateful.
     `;
 
     const response = await ai.models.generateContent({

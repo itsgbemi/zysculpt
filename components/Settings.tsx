@@ -7,6 +7,8 @@ import {
   CheckCircle, 
   FileText, 
   Linkedin, 
+  Github,
+  Globe,
   Loader2, 
   Clock, 
   Zap, 
@@ -62,7 +64,7 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
   };
 
   const navItems = [
-    { id: 'profile', label: 'Personal Information', icon: <User size={18} />, desc: 'Name, title, email, phone, and LinkedIn' },
+    { id: 'profile', label: 'Personal Information', icon: <User size={18} />, desc: 'Name, contact details, and social links' },
     { id: 'master-resume', label: 'Master Resume', icon: <FileText size={18} />, desc: 'The source document for all tailored AI documents' },
     { id: 'goals', label: 'Daily Goals', icon: <Clock size={18} />, desc: 'Set your target availability for roadmaps' },
     { id: 'billing', label: 'Billing & Usage', icon: <CreditCard size={18} />, desc: 'Track your credits and subscription status' },
@@ -155,6 +157,30 @@ const Settings: React.FC<SettingsProps> = ({ onToggleMobile, theme, userProfile,
                       <div className="space-y-2">
                         <label className="text-xs font-bold opacity-50 ml-1 uppercase tracking-widest">Phone</label>
                         <input value={userProfile.phone} onChange={e => handleUpdate('phone', e.target.value)} className={`w-full px-4 py-3 rounded-2xl border text-sm ${inputBg} ${textPrimary}`} placeholder="+1 (555) 000-0000" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 mt-2">
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-4 block">Professional Links</label>
+                      </div>
+                      <div className="space-y-2">
+                         <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold opacity-50 ml-1 uppercase tracking-widest">LinkedIn Profile</label>
+                            <Linkedin size={12} className="opacity-50" />
+                         </div>
+                         <input value={userProfile.linkedIn} onChange={e => handleUpdate('linkedIn', e.target.value)} className={`w-full px-4 py-3 rounded-2xl border text-sm ${inputBg} ${textPrimary}`} placeholder="linkedin.com/in/username" />
+                      </div>
+                      <div className="space-y-2">
+                         <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold opacity-50 ml-1 uppercase tracking-widest">GitHub / GitLab</label>
+                            <Github size={12} className="opacity-50" />
+                         </div>
+                         <input value={userProfile.github || ''} onChange={e => handleUpdate('github', e.target.value)} className={`w-full px-4 py-3 rounded-2xl border text-sm ${inputBg} ${textPrimary}`} placeholder="github.com/username" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                         <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold opacity-50 ml-1 uppercase tracking-widest">Portfolio / Website</label>
+                            <Globe size={12} className="opacity-50" />
+                         </div>
+                         <input value={userProfile.portfolio || ''} onChange={e => handleUpdate('portfolio', e.target.value)} className={`w-full px-4 py-3 rounded-2xl border text-sm ${inputBg} ${textPrimary}`} placeholder="www.myportfolio.com" />
                       </div>
                     </div>
                   </div>

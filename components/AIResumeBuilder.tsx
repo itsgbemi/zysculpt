@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -111,7 +112,7 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeSession.messages, isTyping]);
+  }, [activeSession.messages, isTyping, isSculpting]);
 
   useEffect(() => {
     if (activeSession.finalResume) setShowPreview(true);
@@ -186,9 +187,13 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
       }
     } catch (e: any) {
       console.error("Gemini Chat Error:", e);
-      setErrorMessage(`Chat Error: ${e.message || "Unknown error"}`);
+      let errorText = "The AI is currently unavailable. Check the console for more details.";
+      if (e.message?.includes('API_KEY')) {
+        errorText = "Missing or invalid Gemini API Key. Ensure VITE_API_KEY is correctly set in your Vercel/Environment settings.";
+      }
+      setErrorMessage(errorText);
       updateSession(activeSessionId, { 
-        messages: [...newMessages, { id: 'error', role: 'assistant', content: `Error: ${e.message}`, timestamp: Date.now() }] 
+        messages: [...newMessages, { id: 'error', role: 'assistant', content: errorText, timestamp: Date.now() }] 
       });
     } finally { setIsTyping(false); }
   };
@@ -196,24 +201,45 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
   const handleSculpt = async () => {
     setErrorMessage(null);
     setIsSculpting(true);
+    
+    // Add temporary visual feedback in chat instead of modal
+    const tempMsgId = 'sculpting-loader';
+    const sculptingMsg: Message = { 
+      id: tempMsgId, 
+      role: 'assistant', 
+      content: "I'm sculpting your resume now based on your profile and target job description...", 
+      timestamp: Date.now() 
+    };
+    
+    const prevMessages = activeSession.messages;
+    updateSession(activeSessionId, { messages: [...prevMessages, sculptingMsg] });
+
     try {
       const combinedData = `Background: ${activeSession.resumeText || userProfile?.baseResumeText || ''}\nChat Context: ${activeSession.messages.map(m => m.content).join('\n')}`;
-      const result = await geminiService.sculptResume(activeSession.jobDescription || 'Professional Resume', combinedData);
-      updateSession(activeSessionId, { finalResume: result });
+      const result = await geminiService.sculptResume(activeSession.jobDescription || 'Professional Resume', combinedData, userProfile);
+      
+      // Remove the temp message and set the result
+      updateSession(activeSessionId, { 
+        finalResume: result,
+        messages: prevMessages // Revert messages to remove the temp loader if desired, or keep it as history. Let's revert to keep chat clean.
+      });
       setShowPreview(true);
     } catch (err: any) { 
       console.error("Gemini Sculpt Error:", err);
-      // Show exact error message to identify if it's missing key or invalid key
-      const detailedError = err.message || "No error details returned";
-      setErrorMessage(`Sculpting Failed: ${detailedError}. If missing key, ensure VITE_API_KEY is set in Vercel and you have triggered a REDEPLOY.`);
-      
-      if (err.message?.includes('404')) {
+      let errorText = "Failed to sculpt resume. Check your API_KEY and billing status.";
+      if (err.message?.includes('401') || err.message?.includes('API_KEY')) {
+        errorText = "API Key Error: Your API_KEY is invalid or missing in Vercel. Did you prefix it with VITE_?";
+      } else if (err.message?.includes('404')) {
         // @ts-ignore
         if (window.aistudio?.openSelectKey) {
+           errorText = "Project/Entity not found. Re-selecting your API key may fix this.";
            // @ts-ignore
            window.aistudio.openSelectKey();
         }
       }
+      setErrorMessage(errorText);
+      // Remove temp message on error too
+      updateSession(activeSessionId, { messages: prevMessages });
     } finally { setIsSculpting(false); }
   };
 
@@ -302,16 +328,6 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
 
   return (
     <div className="flex flex-col h-full relative">
-      {isSculpting && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="p-8 rounded-[40px] bg-[#1a1a1a] border border-white/10 flex flex-col items-center shadow-2xl animate-in zoom-in-95">
-              <Loader2 size={48} className="text-indigo-500 animate-spin mb-6" />
-              <h3 className="text-xl font-bold text-white mb-2">Sculpting Resume</h3>
-              <p className="text-slate-400 text-center text-sm max-w-[240px]">Zysculpt Pro is tailoring your profile for high-impact results...</p>
-           </div>
-        </div>
-      )}
-
       <header className={`p-4 md:p-6 border-b flex items-center justify-between transition-colors sticky top-0 z-10 ${theme === 'dark' ? 'bg-[#191919] border-[#2a2a2a]' : 'bg-white border-[#e2e8f0]'}`}>
         <div className="flex items-center gap-3">
           <button onClick={onToggleMobile} className="md:hidden p-2 -ml-2 text-indigo-500 transition-colors">
@@ -348,10 +364,12 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
             </div>
           </div>
         ))}
-        {isTyping && (
+        {/* Unified loading state for chat and sculpting actions */}
+        {(isTyping || isSculpting) && (
           <div className="flex justify-start">
-            <div className={`rounded-2xl p-4 border ${theme === 'dark' ? 'bg-[#2a2a2a] border-[#333]' : 'bg-white border-[#e2e8f0]'}`}>
+            <div className={`rounded-2xl p-4 border flex items-center gap-3 ${theme === 'dark' ? 'bg-[#2a2a2a] border-[#333]' : 'bg-white border-[#e2e8f0]'}`}>
               <Loader2 className="animate-spin text-indigo-500" size={18} />
+              {isSculpting && <span className="text-xs opacity-70">Sculpting document...</span>}
             </div>
           </div>
         )}
