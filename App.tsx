@@ -14,6 +14,7 @@ import { Auth } from './components/Auth';
 import { AppView, ChatSession, Theme, UserProfile } from './types';
 import { supabase } from './services/supabase';
 import { Sparkles } from 'lucide-react';
+import { setDatadogUser, clearDatadogUser } from './services/datadog';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -112,15 +113,28 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
+        setDatadogUser({ 
+          id: session.user.id, 
+          email: session.user.email 
+        });
         fetchData(session.user.id);
       } else {
+        clearDatadogUser();
         setAuthLoading(false);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchData(session.user.id);
+      if (session) {
+        setDatadogUser({ 
+          id: session.user.id, 
+          email: session.user.email 
+        });
+        fetchData(session.user.id);
+      } else {
+        clearDatadogUser();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -135,7 +149,7 @@ const App: React.FC = () => {
       ]);
 
       if (profileRes.data) {
-        setUserProfile({
+        const profile = {
           fullName: profileRes.data.full_name || '',
           title: profileRes.data.title || '',
           email: profileRes.data.email || '',
@@ -146,6 +160,13 @@ const App: React.FC = () => {
           portfolio: profileRes.data.portfolio || '',
           baseResumeText: profileRes.data.base_resume_text || '',
           dailyAvailability: profileRes.data.daily_availability || 2
+        };
+        setUserProfile(profile);
+        // Update Datadog with richer profile info
+        setDatadogUser({ 
+          id: userId, 
+          email: profile.email,
+          name: profile.fullName
         });
       }
 
@@ -251,6 +272,7 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setSessions([]);
     setActiveSessionId('');
+    clearDatadogUser();
   };
 
   if (authLoading) {
