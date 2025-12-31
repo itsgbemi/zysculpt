@@ -185,10 +185,15 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
           messages: s.messages.map(m => m.id === assistantId ? { ...m, content: assistantResponse } : m) 
         } : s));
       }
-    } catch (e) {
-      setErrorMessage("The AI is currently unavailable. Please check your API key and connection.");
+    } catch (e: any) {
+      console.error("Gemini Error:", e);
+      let errorText = "The AI is currently unavailable. Please check your API_KEY in your Vercel/Environment settings.";
+      if (e.message?.includes('API key not valid')) {
+        errorText = "Invalid Gemini API Key. Please verify your API_KEY in project settings.";
+      }
+      setErrorMessage(errorText);
       updateSession(activeSessionId, { 
-        messages: [...newMessages, { id: 'error', role: 'assistant', content: "Something went wrong. Please check your API key in Vercel settings.", timestamp: Date.now() }] 
+        messages: [...newMessages, { id: 'error', role: 'assistant', content: errorText, timestamp: Date.now() }] 
       });
     } finally { setIsTyping(false); }
   };
@@ -201,9 +206,9 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
       const result = await geminiService.sculptResume(activeSession.jobDescription || 'Professional Resume', combinedData);
       updateSession(activeSessionId, { finalResume: result });
       setShowPreview(true);
-    } catch (err) { 
+    } catch (err: any) { 
       console.error(err);
-      setErrorMessage("Failed to sculpt resume. Ensure your API key is valid.");
+      setErrorMessage("Failed to sculpt resume. Ensure your API_KEY is valid in Vercel settings.");
     } finally { setIsSculpting(false); }
   };
 
