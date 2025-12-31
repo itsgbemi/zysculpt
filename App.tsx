@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Overview from './components/Overview';
 import AIResumeBuilder from './components/AIResumeBuilder';
@@ -10,89 +10,179 @@ import JobSearch from './components/JobSearch';
 import Settings from './components/Settings';
 import Documents from './components/Documents';
 import KnowledgeHub from './components/KnowledgeHub';
+import { Auth } from './components/Auth';
 import { AppView, ChatSession, Theme, UserProfile } from './types';
+import { supabase } from './services/supabase';
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentView, setCurrentView] = useState<AppView>(AppView.OVERVIEW);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('zysculpt-theme') as Theme) || 'dark');
 
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('zysculpt-profile');
-    return saved ? JSON.parse(saved) : {
-      fullName: '',
-      title: '',
-      email: '',
-      phone: '',
-      location: '',
-      linkedIn: '',
-      baseResumeText: '',
-      dailyAvailability: 2
-    };
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    fullName: '',
+    title: '',
+    email: '',
+    phone: '',
+    location: '',
+    linkedIn: '',
+    baseResumeText: '',
+    dailyAvailability: 2
   });
 
-  const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    const saved = localStorage.getItem('zysculpt-sessions');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'default-copilot',
-        title: 'Career Progression Plan',
-        lastUpdated: Date.now(),
-        type: 'career-copilot',
-        messages: [{
-          id: '1',
-          role: 'assistant',
-          content: "Welcome to your **Career Roadmap**. Let's design your professional future. What is your primary career objective for the next 3 to 12 months?",
-          timestamp: Date.now(),
-        }],
-        finalResume: null
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState('');
+
+  // 1. Sync Profile to Supabase
+  const syncProfile = useCallback(async (profile: UserProfile, userId: string) => {
+    try {
+      await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: profile.fullName,
+        title: profile.title,
+        email: profile.email,
+        phone: profile.phone,
+        location: profile.location,
+        linkedin: profile.linkedIn,
+        base_resume_text: profile.baseResumeText,
+        daily_availability: profile.dailyAvailability,
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Profile sync error:", e);
+    }
+  }, []);
+
+  // 2. Sync Session to Supabase
+  const syncSession = useCallback(async (chatSession: ChatSession, userId: string) => {
+    try {
+      await supabase.from('sessions').upsert({
+        id: chatSession.id,
+        user_id: userId,
+        title: chatSession.title,
+        type: chatSession.type,
+        messages: chatSession.messages,
+        job_description: chatSession.jobDescription,
+        resume_text: chatSession.resumeText,
+        final_resume: chatSession.finalResume,
+        career_goal_data: chatSession.careerGoalData,
+        style_prefs: chatSession.stylePrefs,
+        last_updated: chatSession.lastUpdated
+      });
+    } catch (e) {
+      console.error("Session sync error:", e);
+    }
+  }, []);
+
+  // 3. Fetch Initial Data
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchData(session.user.id);
+      } else {
+        setAuthLoading(false);
       }
-    ];
-  });
+    });
 
-  const [activeSessionId, setActiveSessionId] = useState(sessions[0].id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchData(session.user.id);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchData = async (userId: string) => {
+    setAuthLoading(true);
+    try {
+      const [profileRes, sessionsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('sessions').select('*').eq('user_id', userId).order('last_updated', { ascending: false })
+      ]);
+
+      if (profileRes.data) {
+        setUserProfile({
+          fullName: profileRes.data.full_name || '',
+          title: profileRes.data.title || '',
+          email: profileRes.data.email || '',
+          phone: profileRes.data.phone || '',
+          location: profileRes.data.location || '',
+          linkedIn: profileRes.data.linkedin || '',
+          baseResumeText: profileRes.data.base_resume_text || '',
+          dailyAvailability: profileRes.data.daily_availability || 2
+        });
+      }
+
+      if (sessionsRes.data && sessionsRes.data.length > 0) {
+        const mapped: ChatSession[] = sessionsRes.data.map(s => ({
+          id: s.id,
+          title: s.title,
+          type: s.type,
+          messages: s.messages,
+          jobDescription: s.job_description,
+          resumeText: s.resume_text,
+          finalResume: s.final_resume,
+          careerGoalData: s.career_goal_data,
+          stylePrefs: s.style_prefs,
+          lastUpdated: s.last_updated
+        }));
+        setSessions(mapped);
+        setActiveSessionId(mapped[0].id);
+      } else {
+        // Create initial session if none exist
+        createNewSession('career-copilot', 'Career Roadmap');
+      }
+    } catch (e) {
+      console.error("Data fetch error:", e);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.body.className = `theme-${theme}`;
     localStorage.setItem('zysculpt-theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    localStorage.setItem('zysculpt-sessions', JSON.stringify(sessions));
-  }, [sessions]);
-
-  useEffect(() => {
-    localStorage.setItem('zysculpt-profile', JSON.stringify(userProfile));
-  }, [userProfile]);
-
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
   const toggleMobileSidebar = () => setIsMobileOpen(!isMobileOpen);
 
   const updateSession = (sessionId: string, updates: Partial<ChatSession>) => {
-    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, ...updates, lastUpdated: Date.now() } : s));
+    setSessions(prev => {
+      const updated = prev.map(s => s.id === sessionId ? { ...s, ...updates, lastUpdated: Date.now() } : s);
+      const sessionToSync = updated.find(s => s.id === sessionId);
+      if (sessionToSync && session?.user?.id) {
+        syncSession(sessionToSync, session.user.id);
+      }
+      return updated;
+    });
   };
 
-  const deleteSession = (sessionId: string) => {
+  const deleteSession = async (sessionId: string) => {
     const filtered = sessions.filter(s => s.id !== sessionId);
     setSessions(filtered);
+    if (session?.user?.id) {
+      await supabase.from('sessions').delete().eq('id', sessionId);
+    }
     if (activeSessionId === sessionId && filtered.length > 0) setActiveSessionId(filtered[0].id);
     else if (filtered.length === 0) createNewSession('career-copilot');
   };
 
   const createNewSession = (type: 'resume' | 'cover-letter' | 'resignation-letter' | 'career-copilot' = 'resume', title?: string, jobDesc?: string, jobContext?: string) => {
-    const newId = Date.now().toString();
-    
+    const newId = crypto.randomUUID();
     let welcomeMessage = "How can I help you today?";
     
     if (jobContext) {
-      welcomeMessage = `I've imported the details for **${jobContext}**. I'm ready to help you tailor a high-impact ${type === 'resume' ? 'resume' : 'cover letter'} for this specific role. Shall we start by reviewing how your current experience aligns with their requirements?`;
+      welcomeMessage = `I've imported the details for **${jobContext}**. I'm ready to help you tailor a high-impact ${type === 'resume' ? 'resume' : 'cover letter'} for this specific role.`;
     } else {
-      if (type === 'resume') welcomeMessage = "Welcome to the **Resume Architect**. I'm ready to build a professional, ATS-optimized resume. To start, you can paste a job description or share a few recent career highlights.";
-      if (type === 'cover-letter') welcomeMessage = "Let's draft a persuasive **Cover Letter**. Tell me about the role you're targeting and what makes you a great fit, and I'll help you strike the perfect tone.";
-      if (type === 'resignation-letter') welcomeMessage = "I'll help you draft a professional and graceful **Resignation Letter**. Please share your current role and your planned notice period.";
-      if (type === 'career-copilot') welcomeMessage = "I'm your **Career Strategist**. What major professional milestone are we working toward? I'll help you break it down into a clear, daily action plan.";
+      if (type === 'resume') welcomeMessage = "Welcome to the **Resume Architect**. Paste a job description to begin.";
+      if (type === 'cover-letter') welcomeMessage = "Let's draft a persuasive **Cover Letter**.";
+      if (type === 'resignation-letter') welcomeMessage = "I'll help you draft a professional **Resignation Letter**.";
+      if (type === 'career-copilot') welcomeMessage = "I'm your **Career Strategist**. What's our next big goal?";
     }
 
     const newSession: ChatSession = {
@@ -108,6 +198,7 @@ const App: React.FC = () => {
 
     setSessions([newSession, ...sessions]);
     setActiveSessionId(newId);
+    if (session?.user?.id) syncSession(newSession, session.user.id);
     
     if (type === 'resume') setCurrentView(AppView.RESUME_BUILDER);
     else if (type === 'cover-letter') setCurrentView(AppView.COVER_LETTER);
@@ -115,10 +206,36 @@ const App: React.FC = () => {
     else setCurrentView(AppView.CAREER_COPILOT);
   };
 
+  const handleUpdateProfile = (newProfile: UserProfile) => {
+    setUserProfile(newProfile);
+    if (session?.user?.id) syncProfile(newProfile, session.user.id);
+  };
+
   const handleSculptFromJob = (job: { title: string, company: string, description: string }, type: 'resume' | 'cover-letter') => {
     const contextStr = `${job.title} at ${job.company}`;
     createNewSession(type, `${type === 'resume' ? 'Resume' : 'Letter'}: ${contextStr}`, job.description, contextStr);
   };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSessions([]);
+    setActiveSessionId('');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full bg-[#121212] flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-white font-bold text-xs tracking-widest uppercase opacity-40">Synchronizing Flight Data</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   const renderView = () => {
     const commonProps = { onToggleMobile: toggleMobileSidebar, theme, sessions, activeSessionId, updateSession, setSessions, userProfile };
@@ -131,7 +248,7 @@ const App: React.FC = () => {
       case AppView.KNOWLEDGE_HUB: return <KnowledgeHub onToggleMobile={toggleMobileSidebar} theme={theme} />;
       case AppView.DOCUMENTS: return <Documents onToggleMobile={toggleMobileSidebar} theme={theme} sessions={sessions} onSelectSession={(id) => { setActiveSessionId(id); setCurrentView(AppView.DOCUMENTS); }} />;
       case AppView.FIND_JOB: return <JobSearch onToggleMobile={toggleMobileSidebar} theme={theme} onSculptResume={(job) => handleSculptFromJob(job, 'resume')} onSculptLetter={(job) => handleSculptFromJob(job, 'cover-letter')} />;
-      case AppView.SETTINGS: return <Settings onToggleMobile={toggleMobileSidebar} theme={theme} userProfile={userProfile} setUserProfile={setUserProfile} />;
+      case AppView.SETTINGS: return <Settings onToggleMobile={toggleMobileSidebar} theme={theme} userProfile={userProfile} setUserProfile={handleUpdateProfile} />;
       default: return <Overview {...commonProps} setView={setCurrentView} />;
     }
   };
@@ -146,6 +263,7 @@ const App: React.FC = () => {
         sessions={sessions} activeSessionId={activeSessionId} setActiveSessionId={setActiveSessionId}
         onNewSession={createNewSession} onDeleteSession={deleteSession}
         onRenameSession={(id, title) => updateSession(id, { title })}
+        onLogout={handleLogout}
       />
       <main className="flex-1 overflow-hidden relative w-full">{renderView()}</main>
     </div>
