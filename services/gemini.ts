@@ -8,7 +8,8 @@ export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
+    this.ai = new GoogleGenAI({ apiKey: apiKey as string });
   }
 
   async generateChatResponse(
