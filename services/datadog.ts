@@ -84,11 +84,10 @@ export const simulateError = () => {
     status: 'error',
     alert_type: 'test_simulation'
   });
-  alert("Simulated Error sent to Datadog Logs. Check your 'High Error Rate' monitor.");
+  alert("Simulated Error sent to Datadog Logs. Check your 'Error Rate' monitor.");
 };
 
 export const simulateHighLatency = () => {
-  const startTime = performance.now() - 15000; // Pretend it started 15 seconds ago
   const durationMs = 15000;
   
   datadogLogs.logger.info("LLM Chat Stream Success", {
@@ -103,7 +102,7 @@ export const simulateHighLatency = () => {
     },
     alert_type: 'test_simulation'
   });
-  alert("Simulated 15s Latency log sent. Check your 'High Latency' monitor.");
+  alert("Simulated 15s Latency log sent. Check your 'Latency' widget.");
 };
 
 export const simulateCostSpike = () => {
@@ -119,5 +118,5 @@ export const simulateCostSpike = () => {
     },
     alert_type: 'test_simulation'
   });
-  alert("Simulated $6.00 Cost Spike sent. Check your 'High Cost' monitor.");
+  alert("Simulated $6.00 Cost Spike sent. Check your 'Total Cost' widget.");
 };

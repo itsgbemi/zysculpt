@@ -16,10 +16,13 @@ import {
   Sparkles,
   Mic,
   Square,
-  Menu
+  Menu,
+  Volume2,
+  StopCircle
 } from 'lucide-react';
 import { Message, ChatSession, Theme, ScheduledTask, UserProfile } from '../types';
 import { geminiService } from '../services/gemini';
+import { elevenLabsService } from '../services/elevenlabs';
 import { MarkdownLite } from './AIResumeBuilder';
 
 interface CareerCopilotProps {
@@ -38,6 +41,9 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  
+  // Audio state
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
 
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -90,6 +96,12 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
   const handleSend = async (audioData?: string) => {
     if (!inputValue.trim() && !audioData && !isTyping) return;
     
+    // Stop any playing audio when sending new message
+    if (playingMessageId) {
+      elevenLabsService.stop();
+      setPlayingMessageId(null);
+    }
+
     const contentText = audioData ? (inputValue.trim() ? `${inputValue} [Voice Message]` : "[Voice Message]") : inputValue;
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content: contentText, timestamp: Date.now() };
     const newMessages = [...activeSession.messages, userMessage];
@@ -123,6 +135,16 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
     } catch (e) {
       updateSession(activeSessionId, { messages: [...newMessages, { id: 'error', role: 'assistant', content: "Error occurred.", timestamp: Date.now() }] });
     } finally { setIsTyping(false); }
+  };
+
+  const toggleSpeech = (messageId: string, text: string) => {
+    if (playingMessageId === messageId) {
+      elevenLabsService.stop();
+      setPlayingMessageId(null);
+    } else {
+      setPlayingMessageId(messageId);
+      elevenLabsService.speak(text, () => setPlayingMessageId(null));
+    }
   };
 
   const handleGeneratePlan = async () => {
@@ -193,8 +215,23 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
                 : theme === 'dark' ? 'bg-[#2a2a2a] text-white border-[#444]' : 'bg-white text-slate-900 border-slate-200'
             }`}>
               <div className="text-sm leading-relaxed"><MarkdownLite text={m.content} theme={theme} /></div>
-              <div className={`text-[9px] mt-2 opacity-30 text-right ${m.role === 'user' && theme === 'dark' ? 'text-white' : 'text-slate-600'}`}>
-                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <div className={`flex items-center justify-between mt-2 pt-2 border-t ${m.role === 'user' ? (theme === 'dark' ? 'border-indigo-500/30' : 'border-indigo-200/50') : (theme === 'dark' ? 'border-white/5' : 'border-slate-100')}`}>
+                 <div className={`text-[9px] opacity-30 ${m.role === 'user' && theme === 'dark' ? 'text-white' : 'text-slate-600'}`}>
+                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                 </div>
+                 {m.role === 'assistant' && (
+                   <button 
+                      onClick={() => toggleSpeech(m.id, m.content)}
+                      className={`p-1.5 rounded-full transition-all ${
+                        playingMessageId === m.id 
+                          ? 'bg-indigo-500 text-white animate-pulse' 
+                          : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10'
+                      }`}
+                      title={playingMessageId === m.id ? "Stop reading" : "Read aloud (Mock Interview)"}
+                   >
+                      {playingMessageId === m.id ? <StopCircle size={14} /> : <Volume2 size={14} />}
+                   </button>
+                 )}
               </div>
             </div>
           </div>
@@ -216,7 +253,7 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={isRecording ? "Recording..." : "Tell the Copilot about your career goal..."}
+              placeholder={isRecording ? "Recording..." : "Practice interview or ask for advice..."}
               disabled={isRecording}
               className={`w-full border rounded-2xl p-4 pr-12 min-h-[60px] max-h-[200px] transition-all resize-none text-sm md:text-base outline-none ${
                 theme === 'dark' ? 'bg-[#121212] border-[#2a2a2a] text-white focus:border-white' : 'bg-slate-50 border-[#e2e8f0] text-[#0F172A] focus:border-indigo-400'
@@ -229,6 +266,7 @@ const CareerCopilot: React.FC<CareerCopilotProps> = ({
               onTouchStart={startRecording}
               onTouchEnd={stopRecording}
               className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:text-indigo-500 hover:bg-white/5'}`}
+              title="Hold to record voice message"
             >
               {isRecording ? <Square size={18} /> : <Mic size={18} />}
             </button>
