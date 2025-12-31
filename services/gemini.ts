@@ -40,6 +40,48 @@ export class GeminiService {
     `;
   }
 
+  // Helper to log LLM Telemetry to Datadog
+  private logTelemetry(operation: string, model: string, startTime: number, response?: any, error?: any) {
+    const durationMs = performance.now() - startTime;
+    
+    if (error) {
+      datadogLogs.logger.error(`LLM ${operation} Failed`, {
+        model,
+        duration_ms: durationMs,
+        error: error.message,
+        status: 'error',
+        service: 'zysculpt-ui' // Explicit service tagging
+      });
+    } else {
+      // Extract usage metadata if available
+      const usage = response?.usageMetadata || {};
+      const inputTokens = usage.promptTokenCount || 0;
+      const outputTokens = usage.candidatesTokenCount || 0;
+      const totalTokens = usage.totalTokenCount || 0;
+
+      datadogLogs.logger.info(`LLM ${operation} Success`, {
+        model,
+        duration_ms: durationMs,
+        status: 'ok',
+        service: 'zysculpt-ui',
+        llm_telemetry: {
+          tokens: {
+            prompt: inputTokens,
+            completion: outputTokens,
+            total: totalTokens
+          },
+          latency: durationMs,
+          // Estimated cost calculation (approximate pricing for Gemini)
+          // Flash: $0.075/1m in, $0.30/1m out (example rates)
+          // Pro: $3.50/1m in, $10.50/1m out (example rates)
+          estimated_cost_usd: model.includes('flash') 
+            ? (inputTokens * 0.000000075) + (outputTokens * 0.00000030)
+            : (inputTokens * 0.0000035) + (outputTokens * 0.0000105)
+        }
+      });
+    }
+  }
+
   async generateChatResponse(
     history: Message[], 
     currentMessage: string, 
@@ -51,6 +93,7 @@ export class GeminiService {
       audioPart?: { inlineData: { data: string, mimeType: string } }
     }
   ) {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       
@@ -93,7 +136,7 @@ export class GeminiService {
 
       contents.push({ role: 'user', parts: currentParts });
 
-      return await ai.models.generateContentStream({
+      const result = await ai.models.generateContentStream({
         model: FLASH_MODEL,
         contents: contents as any,
         config: {
@@ -101,17 +144,20 @@ export class GeminiService {
           temperature: 0.7,
         },
       });
+
+      // For streams, we log success here, though token counts might be harder to get from the stream object immediately
+      // without consuming it. We log the init success.
+      this.logTelemetry('Chat Stream', FLASH_MODEL, startTime, { usageMetadata: { totalTokenCount: 0 } }); 
+      return result;
+
     } catch (error: any) {
-      datadogLogs.logger.error("Chat Generation Failed", { 
-        model: FLASH_MODEL, 
-        error: error.message,
-        type: context?.type 
-      });
+      this.logTelemetry('Chat Stream', FLASH_MODEL, startTime, null, error);
       throw error;
     }
   }
 
   async generateCareerPlan(goal: string, availability: number): Promise<any[]> {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       const prompt = `Create a 30-day career plan for the following goal: "${goal}". 
@@ -123,14 +169,17 @@ export class GeminiService {
         contents: prompt,
         config: { responseMimeType: "application/json" }
       });
+      
+      this.logTelemetry('Career Plan', FLASH_MODEL, startTime, response);
       return JSON.parse(response.text || '[]');
     } catch (error: any) {
-      datadogLogs.logger.error("Career Plan Generation Failed", { error: error.message });
+      this.logTelemetry('Career Plan', FLASH_MODEL, startTime, null, error);
       throw error;
     }
   }
 
   async generateQuiz(topic: string): Promise<any[]> {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       const prompt = `Generate 5 challenging quiz questions about "${topic}". 
@@ -141,14 +190,17 @@ export class GeminiService {
         contents: prompt,
         config: { responseMimeType: "application/json" }
       });
+
+      this.logTelemetry('Quiz', FLASH_MODEL, startTime, response);
       return JSON.parse(response.text || '[]');
     } catch (error: any) {
-      datadogLogs.logger.error("Quiz Generation Failed", { error: error.message });
+      this.logTelemetry('Quiz', FLASH_MODEL, startTime, null, error);
       throw error;
     }
   }
 
   async sculptResume(jobDescription: string, userData: string, userProfile?: UserProfile): Promise<string> {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       const profileHeader = this.formatProfileHeader(userProfile);
@@ -179,17 +231,17 @@ export class GeminiService {
         model: PRO_MODEL,
         contents: prompt,
       });
+      
+      this.logTelemetry('Sculpt Resume', PRO_MODEL, startTime, response);
       return response.text || "Failed to generate resume.";
     } catch (error: any) {
-      datadogLogs.logger.error("Resume Sculpting Failed", { 
-        model: PRO_MODEL, 
-        error: error.message 
-      });
+      this.logTelemetry('Sculpt Resume', PRO_MODEL, startTime, null, error);
       throw error;
     }
   }
 
   async sculptCoverLetter(jobDescription: string, userData: string, userProfile?: UserProfile): Promise<string> {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       const profileHeader = this.formatProfileHeader(userProfile);
@@ -219,17 +271,17 @@ export class GeminiService {
         model: PRO_MODEL,
         contents: prompt,
       });
+
+      this.logTelemetry('Sculpt Cover Letter', PRO_MODEL, startTime, response);
       return response.text || "Failed to generate cover letter.";
     } catch (error: any) {
-      datadogLogs.logger.error("Cover Letter Sculpting Failed", { 
-        model: PRO_MODEL, 
-        error: error.message 
-      });
+      this.logTelemetry('Sculpt Cover Letter', PRO_MODEL, startTime, null, error);
       throw error;
     }
   }
 
   async sculptResignationLetter(exitDetails: string, userData: string, userProfile?: UserProfile): Promise<string> {
+    const startTime = performance.now();
     try {
       const ai = this.getClient();
       const profileHeader = this.formatProfileHeader(userProfile);
@@ -258,12 +310,11 @@ export class GeminiService {
         model: PRO_MODEL,
         contents: prompt,
       });
+
+      this.logTelemetry('Sculpt Resignation', PRO_MODEL, startTime, response);
       return response.text || "Failed to generate resignation letter.";
     } catch (error: any) {
-      datadogLogs.logger.error("Resignation Letter Sculpting Failed", { 
-        model: PRO_MODEL, 
-        error: error.message 
-      });
+      this.logTelemetry('Sculpt Resignation', PRO_MODEL, startTime, null, error);
       throw error;
     }
   }
