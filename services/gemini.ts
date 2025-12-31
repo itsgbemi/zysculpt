@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Message, UserProfile } from "../types";
 
@@ -8,14 +7,18 @@ const FLASH_MODEL = 'gemini-3-flash-preview';
 
 /**
  * Zysculpt Gemini Service
- * 
- * Accesses API_KEY via process.env.API_KEY (shimmed from VITE_API_KEY in index.tsx)
- * Creates new instances per-call to ensure key updates from UI dialogs are captured.
  */
 export class GeminiService {
   private getClient() {
+    // Attempt to get key from shimmed process.env OR direct Vite meta.env
+    const key = (process.env as any).API_KEY || (import.meta as any).env?.VITE_API_KEY;
+    
+    if (!key) {
+      throw new Error("API_KEY_MISSING: Gemini API Key not found in process.env or import.meta.env");
+    }
+
     // Strictly following initialization rule: new GoogleGenAI({ apiKey: process.env.API_KEY })
-    return new GoogleGenAI({ apiKey: (process.env as any).API_KEY as string });
+    return new GoogleGenAI({ apiKey: key });
   }
 
   async generateChatResponse(
@@ -53,10 +56,6 @@ export class GeminiService {
     3. Ask clear, focused questions one or two at a time.
     4. Maintain a professional, expert, and encouraging tone.
     5. When ready, offer to "generate" the final document.
-    ${type === 'resignation-letter' ? 'Focus on professionalism, gratitude (if applicable), and clear exit details like notice period.' : ''}
-    ${type === 'career-copilot' ? 'Focus on career progression, skill mapping, and breaking down yearly goals into actionable daily targets.' : ''}
-    
-    If the user provides audio, it is a voice message. Acknowledge what they said.
     `;
 
     const contents = history.map(m => ({
@@ -88,8 +87,7 @@ export class GeminiService {
     const ai = this.getClient();
     const prompt = `Create a 30-day career plan for the following goal: "${goal}". 
     The user has ${availability} hours per day available.
-    Return the plan as a JSON array of objects with keys: "day" (1-30) and "task" (string).
-    Keep tasks specific and achievable within the time frame.`;
+    Return the plan as a JSON array of objects with keys: "day" (1-30) and "task" (string).`;
 
     const response = await ai.models.generateContent({
       model: FLASH_MODEL,
@@ -122,12 +120,6 @@ export class GeminiService {
       
       USER DATA/EXPERIENCE:
       ${userData}
-      
-      INSTRUCTIONS:
-      - Use clear headings: Professional Summary, Work Experience, Skills, Education.
-      - Optimize for specific keywords from the Job Description.
-      - Output ONLY the resume in Markdown.
-      - IMPORTANT: Format links as [actual-url](actual-url) so they are clickable and readable.
     `;
 
     const response = await ai.models.generateContent({
@@ -147,12 +139,6 @@ export class GeminiService {
       
       USER BACKGROUND:
       ${userData}
-      
-      INSTRUCTIONS:
-      - Use a professional business letter format.
-      - Make it sound natural and enthusiastic, not robotic.
-      - Explicitly link user's top achievements to the specific needs of the job.
-      - Output ONLY the cover letter in Markdown.
     `;
 
     const response = await ai.models.generateContent({
@@ -172,12 +158,6 @@ export class GeminiService {
       
       USER BACKGROUND:
       ${userData}
-      
-      INSTRUCTIONS:
-      - Use professional business letter format.
-      - Ensure a positive tone.
-      - Include placeholders for manager name and signature.
-      - Output ONLY the letter in Markdown.
     `;
 
     const response = await ai.models.generateContent({

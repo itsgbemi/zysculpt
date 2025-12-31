@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -186,14 +185,10 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
         } : s));
       }
     } catch (e: any) {
-      console.error("Gemini Error:", e);
-      let errorText = "The AI is currently unavailable. Please check your API_KEY in your Vercel/Environment settings.";
-      if (e.message?.includes('API key not valid')) {
-        errorText = "Invalid Gemini API Key. Please verify your API_KEY in project settings.";
-      }
-      setErrorMessage(errorText);
+      console.error("Gemini Chat Error:", e);
+      setErrorMessage(`Chat Error: ${e.message || "Unknown error"}`);
       updateSession(activeSessionId, { 
-        messages: [...newMessages, { id: 'error', role: 'assistant', content: errorText, timestamp: Date.now() }] 
+        messages: [...newMessages, { id: 'error', role: 'assistant', content: `Error: ${e.message}`, timestamp: Date.now() }] 
       });
     } finally { setIsTyping(false); }
   };
@@ -207,8 +202,18 @@ const AIResumeBuilder: React.FC<AIResumeBuilderProps> = ({
       updateSession(activeSessionId, { finalResume: result });
       setShowPreview(true);
     } catch (err: any) { 
-      console.error(err);
-      setErrorMessage("Failed to sculpt resume. Ensure your API_KEY is valid in Vercel settings.");
+      console.error("Gemini Sculpt Error:", err);
+      // Show exact error message to identify if it's missing key or invalid key
+      const detailedError = err.message || "No error details returned";
+      setErrorMessage(`Sculpting Failed: ${detailedError}. If missing key, ensure VITE_API_KEY is set in Vercel and you have triggered a REDEPLOY.`);
+      
+      if (err.message?.includes('404')) {
+        // @ts-ignore
+        if (window.aistudio?.openSelectKey) {
+           // @ts-ignore
+           window.aistudio.openSelectKey();
+        }
+      }
     } finally { setIsSculpting(false); }
   };
 
