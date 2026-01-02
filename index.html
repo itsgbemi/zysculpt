@@ -4,13 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zysculpt</title>
+    <title>Zysculpt | AI Career Copilot</title>
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dqhawdcol/image/upload/v1767363241/dokaslbqicyj8qosijau.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@800&family=Roboto:wght@400;700&family=EB+Garamond:wght@400;700&family=Tinos:wght@400;700&display=swap" rel="stylesheet">
-    <!-- html2pdf.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body {
@@ -19,37 +18,16 @@
             overflow-x: hidden;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
-        .theme-dark { background-color: #191919; color: white; }
+        .theme-dark { background-color: #121212; color: white; }
         .theme-light { background-color: #F8FAFC; color: #0F172A; }
         
         .font-sans { font-family: 'Inter', sans-serif !important; }
         .font-serif { font-family: 'EB Garamond', serif !important; }
         .font-mono { font-family: 'Roboto', sans-serif !important; }
-        .font-arial { font-family: Arial, Helvetica, sans-serif !important; }
-        .font-times { font-family: 'Tinos', 'Times New Roman', serif !important; }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        .theme-dark ::-webkit-scrollbar-thumb {
-            background: #333;
-        }
-        @media print {
-            body { background: white !important; color: black !important; overflow: visible !important; }
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            #root > div { display: block !important; }
-            aside { display: none !important; }
-            main { padding: 0 !important; margin: 0 !important; width: 100% !important; height: auto !important; overflow: visible !important; }
-            .printable-area { padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: none !important; width: 100% !important; }
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 <script type="importmap">
 {

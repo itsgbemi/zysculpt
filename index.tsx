@@ -1,33 +1,41 @@
 
-// 1. SHIM IMMEDIATELY (Must be before any other imports)
-const env = (import.meta as any).env || {};
-const viteKey = env.VITE_API_KEY;
-
+// 1. SHIM IMMEDIATELY (Safely handle environment variables before any imports)
 if (typeof window !== 'undefined') {
   (window as any).process = (window as any).process || { env: {} };
-  (window as any).process.env = (window as any).process.env || {};
-  if (viteKey) {
-    (window as any).process.env.API_KEY = viteKey;
+  const browserProcess = (window as any).process;
+  
+  try {
+    // @ts-ignore
+    const viteEnv = import.meta.env || {};
+    
+    // Sync VITE_ prefix to process.env
+    Object.keys(viteEnv).forEach(key => {
+      browserProcess.env[key] = viteEnv[key];
+    });
+    
+    // Bridge VITE_API_KEY to API_KEY for Gemini SDK
+    if (viteEnv.VITE_API_KEY && !browserProcess.env.API_KEY) {
+      browserProcess.env.API_KEY = viteEnv.VITE_API_KEY;
+    }
+  } catch (e) {
+    console.warn("Vite environment sync partially failed, continuing with process.env only.");
   }
 }
 
-// 2. REGULAR IMPORTS
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import { initDatadog } from './services/datadog';
+import App from './App.tsx';
+import { initDatadog } from './services/datadog.ts';
 
-// 3. Initialize Monitoring
+// Initialize Monitoring
 initDatadog();
 
 const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+if (rootElement) {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
