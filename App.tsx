@@ -6,6 +6,7 @@ import { JobBoard } from './src/components/JobBoard';
 import { ApplicationTracker } from './src/components/ApplicationTracker';
 import { YourChats } from './src/components/YourChats';
 import { Checklist } from './src/components/Checklist';
+import { supabase } from './src/lib/supabase';
 
 const INITIAL_RESUME: ResumeData = {
 name: "",
@@ -193,7 +194,7 @@ return (
 Format options <svg className={`w-4 h-4 transition-transform ${isCustomizing ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
 </button>
 {isCustomizing && (
-<div className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-64 bg-black border border-gray-800 z-50 shadow-2xl p-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+<div className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-64 bg-[#0d1117] border border-blue-900/30 rounded-lg z-50 shadow-2xl p-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 <div className="space-y-4">
 <div>
 <p className="text-[10px] font-black text-gray-500 tracking-widest mb-2">Send as</p>
@@ -213,9 +214,9 @@ Format options <svg className={`w-4 h-4 transition-transform ${isCustomizing ? '
 Get Template <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
 </button>
 {isOpen && (
-<div className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-56 bg-black border border-gray-800 z-50 shadow-2xl">
-<button onClick={() => { mode === 'resume' ? downloadDOCX(data as ResumeData, filename, title) : downloadCoverLetterDOCX(data as CoverLetterData, filename, title); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 border-b border-gray-900">Export DOCX</button>
-<button onClick={() => { mode === 'resume' ? downloadTXT(data as ResumeData, filename) : downloadTXT(data as ResumeData, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5">Export TXT</button>
+<div className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-56 bg-[#0d1117] border border-blue-900/30 rounded-lg z-50 shadow-2xl overflow-hidden p-1">
+<button onClick={() => { mode === 'resume' ? downloadDOCX(data as ResumeData, filename, title) : downloadCoverLetterDOCX(data as CoverLetterData, filename, title); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-md mb-1 transition-colors">Export DOCX</button>
+<button onClick={() => { mode === 'resume' ? downloadTXT(data as ResumeData, filename) : downloadTXT(data as ResumeData, filename); setIsOpen(false); }} className="w-full px-4 py-3 text-left text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">Export TXT</button>
 </div>
 )}
 </div>
@@ -238,17 +239,58 @@ const displayTitle = title;
 return (
 <h2 className={`font-bold tracking-widest border-b-[1.5pt] mb-3 mt-4 pb-0.5 text-[11pt] ${mode === 'light' ? 'border-black text-black' : 'border-blue-900/40 text-white'}`}>{displayTitle}</h2>
 );
-};const AuthPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+};const AuthPage: React.FC<{ onLogin: (user: any) => void }> = ({ onLogin }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data.user) {
+          setMessage('Check your email to verify your account!');
+          // Send welcome email via our backend
+          fetch('/api/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          }).catch(console.error);
+        }
+      } else if (mode === 'login') {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (data.user) onLogin(data.user);
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
+        setMessage('Password reset instructions sent to your email.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 font-sans text-white selection:bg-white selection:text-black">
       <div className="max-w-md w-full bg-[#0d1117] border border-blue-900/30 rounded-md p-8 shadow-2xl relative overflow-hidden text-left">
         <div className="flex items-center justify-start gap-3 mb-8">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl w-10 h-10 flex items-center justify-center shrink-0">
-            <svg viewBox="0 -0.5 25 25" fill="none" className="w-6 h-6 text-white" stroke="currentColor" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fillRule="evenodd" clipRule="evenodd" d="M5.51528 10.307L5.89028 15.307C6.01993 17.3655 7.71485 18.9758 9.77728 19H15.2293C17.2921 18.9763 18.9876 17.3659 19.1173 15.307L19.4923 10.307C19.5889 9.21028 19.2245 8.12286 18.4867 7.30572C17.7488 6.48858 16.7041 6.01549 15.6033 6H9.40328C8.3026 6.01577 7.25816 6.48898 6.52054 7.30608C5.78293 8.12319 5.41871 9.21045 5.51528 10.307Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> <path d="M15.5033 10C15.5033 11.0718 14.9315 12.0622 14.0033 12.5981C13.0751 13.134 11.9315 13.134 11.0033 12.5981C10.0751 12.0622 9.5033 11.0718 9.5033 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+          <div className="text-blue-500 w-10 h-10 flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 32 32" fill="currentColor" className="w-10 h-10" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M 16 4 C 9.382813 4 4 9.382813 4 16 C 4 22.617188 9.382813 28 16 28 C 22.617188 28 28 22.617188 28 16 C 28 9.382813 22.617188 4 16 4 Z M 16 6 C 21.535156 6 26 10.464844 26 16 C 26 21.535156 21.535156 26 16 26 C 10.464844 26 6 21.535156 6 16 C 6 10.464844 10.464844 6 16 6 Z M 11.5 12 C 10.671875 12 10 12.671875 10 13.5 C 10 14.328125 10.671875 15 11.5 15 C 12.328125 15 13 14.328125 13 13.5 C 13 12.671875 12.328125 12 11.5 12 Z M 18 13 L 18 15 L 23 15 L 23 13 Z M 20.96875 17.03125 C 20.96875 18.714844 20.292969 19.882813 19.3125 20.71875 C 18.332031 21.554688 17.035156 22 16 22 C 13.878906 22 12.4375 21.140625 11.3125 20.03125 L 9.90625 21.46875 C 11.300781 22.839844 13.320313 24 16 24 C 17.554688 24 19.261719 23.414063 20.625 22.25 C 21.988281 21.085938 22.96875 19.289063 22.96875 17.03125 Z"></path></g></svg>
           </div>
-          <span className="text-white font-bold tracking-tight text-3xl font-delius lowercase">zysculpt</span>
+          <span className="text-blue-500 font-bold tracking-wide text-3xl font-delius lowercase">zysculpt</span>
         </div>
         
         <div className="mb-6">
@@ -258,30 +300,38 @@ return (
             {mode === 'forgot' && 'Reset your password'}
           </h2>
           <p className="text-sm text-gray-400">
-            {mode === 'login' && <>Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign up for free</button></>}
-            {mode === 'signup' && <>Already have an account? <button onClick={() => setMode('login')} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign in instead</button></>}
-            {mode === 'forgot' && <>Remembered your password? <button onClick={() => setMode('login')} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign in</button></>}
+            {mode === 'login' && <>Don't have an account? <button onClick={() => {setMode('signup'); setError(''); setMessage('');}} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign up for free</button></>}
+            {mode === 'signup' && <>Already have an account? <button onClick={() => {setMode('login'); setError(''); setMessage('');}} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign in instead</button></>}
+            {mode === 'forgot' && <>Remembered your password? <button onClick={() => {setMode('login'); setError(''); setMessage('');}} className="text-blue-500 font-bold hover:text-blue-400 hover:underline">Sign in</button></>}
           </p>
         </div>
 
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (mode !== 'forgot') onLogin(); }}>
+        {error && <div className="mb-4 bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-md text-sm">{error}</div>}
+        {message && <div className="mb-4 bg-green-500/10 border border-green-500/50 text-green-500 px-4 py-3 rounded-md text-sm">{message}</div>}
+
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2 relative">
-            <label className="text-xs font-bold text-gray-400 tracking-widest">Email</label>
+            <label className="text-xs font-bold text-gray-400">Email</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M20.9717 8C20.9717 8 16.9505 13 12.0005 13C7.05051 13 3.0293 8 3.0293 8M6.2 19H17.8C18.9201 19 19.4802 19 19.908 18.782C20.2843 18.5903 20.5903 18.2843 20.782 17.908C21 17.4802 21 16.9201 21 15.8V8.2C21 7.0799 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V15.8C3 16.9201 3 17.4802 3.21799 17.908C3.40973 18.2843 3.71569 18.5903 4.09202 18.782C4.51984 19 5.07989 19 6.2 19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
               </div>
-              <input type="email" required className="w-full bg-[#05070a] border border-blue-900/30 rounded-md pl-10 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="you@example.com" />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-[#05070a] border border-blue-900/30 rounded-md pl-10 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="you@example.com" />
             </div>
           </div>
           {mode !== 'forgot' && (
              <div className="space-y-2 relative">
-              <label className="text-xs font-bold text-gray-400 tracking-widest">Password</label>
+              <div className="flex justify-between items-center w-full">
+                <label className="text-xs font-bold text-gray-400">Password</label>
+                {mode === 'login' && (
+                  <button type="button" onClick={() => {setMode('forgot'); setError(''); setMessage('');}} className="text-xs font-bold text-blue-500 hover:text-blue-400 hover:underline">Forgot?</button>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M7 10.0288C7.47142 10 8.05259 10 8.8 10H15.2C15.9474 10 16.5286 10 17 10.0288M7 10.0288C6.41168 10.0647 5.99429 10.1455 5.63803 10.327C5.07354 10.6146 4.6146 11.0735 4.32698 11.638C4 12.2798 4 13.1198 4 14.8V16.2C4 17.8802 4 18.7202 4.32698 19.362C4.6146 19.9265 5.07354 20.3854 5.63803 20.673C6.27976 21 7.11984 21 8.8 21H15.2C16.8802 21 17.7202 21 18.362 20.673C18.9265 20.3854 19.3854 19.9265 19.673 19.362C20 18.7202 20 17.8802 20 16.2V14.8C20 13.1198 20 12.2798 19.673 11.638C19.3854 11.0735 18.9265 10.6146 18.362 10.327C18.0057 10.1455 17.5883 10.0647 17 10.0288M7 10.0288V8C7 5.23858 9.23858 3 12 3C14.7614 3 17 5.23858 17 8V10.0288" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
                 </div>
-                <input type={showPassword ? "text" : "password"} required className="w-full bg-[#05070a] border border-blue-900/30 rounded-md pl-10 pr-12 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="••••••••" />
+                <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-[#05070a] border border-blue-900/30 rounded-md pl-10 pr-12 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="••••••••" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors">
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
@@ -292,15 +342,14 @@ return (
               </div>
             </div>
           )}
-          {mode === 'login' && (
-            <div className="flex justify-end pt-1">
-              <button type="button" onClick={() => setMode('forgot')} className="text-xs font-bold text-blue-500 hover:text-blue-400 hover:underline">Forgot password?</button>
-            </div>
-          )}
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md py-3 transition-colors mt-6 shadow-xl">
-            {mode === 'login' && 'Sign In'}
-            {mode === 'signup' && 'Sign Up'}
-            {mode === 'forgot' && 'Send Reset Link'}
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md py-3 transition-colors mt-6 shadow-xl disabled:opacity-50 flex items-center justify-center gap-1">
+            {loading ? (
+              <span className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </span>
+            ) : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
           </button>
         </form>
       </div>
@@ -309,9 +358,33 @@ return (
 };
 
 const App: React.FC = () => {
+const [user, setUser] = useState<any>(null);
 const [isAuthenticated, setIsAuthenticated] = useState(false);
 const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-const [view, setView] = useState<'chat' | 'templates' | 'job_board' | 'application_tracker' | 'your_chats' | 'checklist'>('chat');
+
+useEffect(() => {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    setUser(session?.user ?? null);
+    setIsAuthenticated(!!session?.user);
+  });
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+    setIsAuthenticated(!!session?.user);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
+
+const trackAction = async (action: string) => {
+  if (!user) return;
+  fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: user.id, userEmail: user.email, action })
+  }).catch(console.error);
+};
+const [view, setView] = useState<'chat' | 'job_board' | 'application_tracker' | 'your_chats' | 'checklist'>('chat');
 const [savedApplications, setSavedApplications] = useState<SavedApplication[]>([]);
 const [activeTab, setActiveTab] = useState<'resume' | 'cl'>('resume');
 const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -573,7 +646,7 @@ const Sidebar = () => (
 {isSidebarOpen && (
 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[95] lg:hidden" onClick={() => setIsSidebarOpen(false)} />
 )}
-{isSidebarMinimized && !isExpandedViewOpen && view !== 'templates' && (
+{isSidebarMinimized && !isExpandedViewOpen && (
 <div className="fixed top-4 left-4 z-[110] bg-[#0d1117]/90 backdrop-blur-lg border border-blue-900/40 rounded-md px-4 py-2 flex items-center gap-4 shadow-2xl animate-in fade-in slide-in-from-left duration-300 pointer-events-auto">
 <button onClick={() => setIsSidebarMinimized(false)} className="text-blue-400 hover:text-white p-1 transition-colors">
 {SIDEBAR_EXPAND_ICON}
@@ -588,10 +661,10 @@ const Sidebar = () => (
 <div className="p-6 flex flex-col h-full">
 <div className="flex items-center justify-between mb-10">
 <div className="flex items-center gap-2">
-  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg w-8 h-8 flex items-center justify-center shrink-0">
-    <svg viewBox="0 -0.5 25 25" fill="none" className="w-5 h-5 text-white" stroke="currentColor" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fillRule="evenodd" clipRule="evenodd" d="M5.51528 10.307L5.89028 15.307C6.01993 17.3655 7.71485 18.9758 9.77728 19H15.2293C17.2921 18.9763 18.9876 17.3659 19.1173 15.307L19.4923 10.307C19.5889 9.21028 19.2245 8.12286 18.4867 7.30572C17.7488 6.48858 16.7041 6.01549 15.6033 6H9.40328C8.3026 6.01577 7.25816 6.48898 6.52054 7.30608C5.78293 8.12319 5.41871 9.21045 5.51528 10.307Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> <path d="M15.5033 10C15.5033 11.0718 14.9315 12.0622 14.0033 12.5981C13.0751 13.134 11.9315 13.134 11.0033 12.5981C10.0751 12.0622 9.5033 11.0718 9.5033 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+  <div className="text-blue-500 w-8 h-8 flex items-center justify-center shrink-0">
+    <svg viewBox="0 0 32 32" fill="currentColor" className="w-8 h-8" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M 16 4 C 9.382813 4 4 9.382813 4 16 C 4 22.617188 9.382813 28 16 28 C 22.617188 28 28 22.617188 28 16 C 28 9.382813 22.617188 4 16 4 Z M 16 6 C 21.535156 6 26 10.464844 26 16 C 26 21.535156 21.535156 26 16 26 C 10.464844 26 6 21.535156 6 16 C 6 10.464844 10.464844 6 16 6 Z M 11.5 12 C 10.671875 12 10 12.671875 10 13.5 C 10 14.328125 10.671875 15 11.5 15 C 12.328125 15 13 14.328125 13 13.5 C 13 12.671875 12.328125 12 11.5 12 Z M 18 13 L 18 15 L 23 15 L 23 13 Z M 20.96875 17.03125 C 20.96875 18.714844 20.292969 19.882813 19.3125 20.71875 C 18.332031 21.554688 17.035156 22 16 22 C 13.878906 22 12.4375 21.140625 11.3125 20.03125 L 9.90625 21.46875 C 11.300781 22.839844 13.320313 24 16 24 C 17.554688 24 19.261719 23.414063 20.625 22.25 C 21.988281 21.085938 22.96875 19.289063 22.96875 17.03125 Z"></path></g></svg>
   </div>
-  <span className="text-white font-bold tracking-tight text-xl font-delius lowercase">zysculpt</span>
+  <span className="text-blue-500 font-bold tracking-wide text-xl font-delius lowercase">zysculpt</span>
 </div>
 <div className="flex items-center gap-1">
 <button onClick={() => setIsSidebarMinimized(true)} className="hidden lg:flex text-gray-500 hover:text-white p-1.5 transition-colors">
@@ -613,7 +686,7 @@ const Sidebar = () => (
 <button onClick={() => setView('your_chats')} className={`w-full text-left px-4 py-3 text-sm rounded-md transition-all font-bold ${view === 'your_chats' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Your Chats</button>
 <button onClick={() => setView('job_board')} className={`w-full text-left px-4 py-3 text-sm rounded-md transition-all font-bold ${view === 'job_board' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Job Board</button>
 <button onClick={() => setView('application_tracker')} className={`w-full text-left px-4 py-3 text-sm rounded-md transition-all font-bold ${view === 'application_tracker' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Application Tracker</button>
-<button onClick={() => setView('templates')} className={`w-full text-left px-4 py-3 text-sm rounded-md transition-all font-bold ${view === 'templates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Templates</button>
+
 <button onClick={() => setView('checklist')} className={`w-full text-left px-4 py-3 text-sm rounded-md transition-all font-bold ${view === 'checklist' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Checklist</button>
 </div>
 <h3 className="text-base font-bold text-white tracking-normal mb-4 px-4">Recent Chats</h3>
@@ -627,9 +700,9 @@ const Sidebar = () => (
 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
 </button>
 {activeMenuId === c.id && (
-<div className="absolute right-0 top-full mt-1 bg-[#0d1117] border border-blue-900/40 rounded-md shadow-xl z-[110] w-32 py-1">
-<button onClick={(e) => { e.stopPropagation(); setRenameId(c.id); setRenameValue(c.title); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-400 hover:bg-blue-900/10 hover:text-white">Rename</button>
-<button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(c.id); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-blue-900/10 hover:text-red-400">Delete</button>
+<div className="absolute right-0 top-full mt-1 bg-[#0d1117] border border-blue-900/30 rounded-lg shadow-xl z-[110] w-32 p-1">
+<button onClick={(e) => { e.stopPropagation(); setRenameId(c.id); setRenameValue(c.title); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-400 hover:bg-white/5 hover:text-white rounded-md transition-colors mb-0.5">Rename</button>
+<button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(c.id); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-colors">Delete</button>
 </div>
 )}
 </div>
@@ -644,14 +717,20 @@ const Sidebar = () => (
   // simple outside click logic for profile menu could be added here
 }}>
 {isProfileMenuOpen && (
-<div className="absolute bottom-full left-0 mb-2 w-full bg-[#0d1117] border border-blue-900/40 rounded-md shadow-xl z-[110] py-1">
-<button onClick={() => { setIsAuthenticated(false); setIsProfileMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-blue-900/10 hover:text-red-400 rounded-md">Logout</button>
+<div className="absolute bottom-full left-0 mb-2 w-full bg-[#0d1117] border border-blue-900/30 rounded-lg shadow-xl z-[110] p-1">
+<button onClick={async () => { await supabase.auth.signOut(); setIsProfileMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-colors">
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 3.25C12.4142 3.25 12.75 3.58579 12.75 4C12.75 4.41421 12.4142 4.75 12 4.75C7.99594 4.75 4.75 7.99594 4.75 12C4.75 16.0041 7.99594 19.25 12 19.25C12.4142 19.25 12.75 19.5858 12.75 20C12.75 20.4142 12.4142 20.75 12 20.75C7.16751 20.75 3.25 16.8325 3.25 12C3.25 7.16751 7.16751 3.25 12 3.25Z" fill="currentColor"></path> <path d="M16.4697 9.53033C16.1768 9.23744 16.1768 8.76256 16.4697 8.46967C16.7626 8.17678 17.2374 8.17678 17.5303 8.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L17.5303 15.5303C17.2374 15.8232 16.7626 15.8232 16.4697 15.5303C16.1768 15.2374 16.1768 14.7626 16.4697 14.4697L18.1893 12.75H10C9.58579 12.75 9.25 12.4142 9.25 12C9.25 11.5858 9.58579 11.25 10 11.25H18.1893L16.4697 9.53033Z" fill="currentColor"></path> </g></svg>
+Logout
+</button>
 </div>
 )}
 <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-md transition-colors group">
 <div className="flex items-center gap-3">
-<img src="https://res.cloudinary.com/dibudvaqm/image/upload/v1776790504/images3_fykbsf.png" alt="Profile" className="w-10 h-10 rounded-md object-cover border border-blue-900/30" />
-<span className="text-gray-300 text-sm font-bold group-hover:text-white">You</span>
+<img src="https://res.cloudinary.com/dibudvaqm/image/upload/v1776790504/images3_fykbsf.png" alt="Profile" className="w-10 h-10 rounded-full object-cover border border-blue-900/30" />
+<div className="flex flex-col items-start gap-0 text-left">
+  <span className="text-gray-300 text-sm font-bold group-hover:text-white transition-colors">You</span>
+  <span className="text-gray-500 text-[10px] font-sans">Free plan</span>
+</div>
 </div>
 <svg className={`w-4 h-4 text-gray-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
 </button>
@@ -798,40 +877,10 @@ return (
 );
 };
 
-const TemplateSelectionPanel = ({ onBack }: { onBack: () => void }) => {
-const handleBack = () => {
-onBack();
-setIsSidebarMinimized(false); 
-};
-return (
-<div className="h-full flex flex-col bg-[#020617] overflow-hidden">
-<nav className="bg-[#020617]/95 backdrop-blur-2xl border-b border-blue-900/30 px-6 py-4 flex justify-between items-center shrink-0">
-<div className="flex items-center gap-4">
-<button onClick={handleBack} className="group flex items-center gap-3 text-sm font-bold text-gray-400 hover:text-white transition-all">
-<svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
-<span className="hidden sm:inline font-sans">Back</span>
-</button>
-</div>
-<div className="flex items-center">
-<div className="flex bg-[#0d1117] border border-blue-900/30 rounded-md overflow-hidden p-1">
-<button onClick={() => setActiveTab('resume')} className={`px-4 sm:px-6 py-1.5 sm:py-2 text-[8px] sm:text-[9px] font-black tracking-widest transition-all rounded-md ${activeTab === 'resume' ? 'bg-white text-black shadow-lg' : 'text-gray-500 hover:text-white'}`}>Resume</button>
-<button onClick={() => setActiveTab('cl')} className={`px-4 sm:px-6 py-1.5 sm:py-2 text-[8px] sm:text-[9px] font-black tracking-widest transition-all rounded-md ${activeTab === 'cl' ? 'bg-white text-black shadow-lg' : 'text-gray-500 hover:text-white'}`}>CV Letter</button>
-</div>
-</div>
-</nav>
-<div className="flex-1 overflow-hidden relative">
-<div className="h-full overflow-y-auto scroll-container p-6 lg:p-12">
-<div className="max-w-[1400px] mx-auto">
-{activeTab === 'resume' ? <ResumeTemplates /> : <CoverLetterTemplates />}
-</div>
-</div>
-</div>
-</div>
-);
-};
+
 
 if (!isAuthenticated) {
-  return <AuthPage onLogin={() => setIsAuthenticated(true)} />;
+  return <AuthPage onLogin={(newUser) => { setUser(newUser); setIsAuthenticated(true); }} />;
 }
 
 return (
@@ -973,17 +1022,17 @@ downloadCoverLetterDOCX(clData, fname, "CLASSIC COVER");
 )}
 
 {view === 'your_chats' && <YourChats chats={chats} onSelectChat={(id) => { setCurrentChatId(id); setView('chat'); setIsSidebarOpen(false); }} />}
-{view === 'job_board' && <JobBoard savedApplications={savedApplications} onBookmark={(job) => { setSavedApplications([...savedApplications, { ...job, status: 'Saved', dateAdded: new Date().toISOString() } as SavedApplication]); }} />}
-{view === 'application_tracker' && <ApplicationTracker applications={savedApplications} onUpdateStatus={(id, status) => setSavedApplications(savedApplications.map(a => a.id === id ? { ...a, status } : a))} onAddExternal={(app) => setSavedApplications([...savedApplications, app])} />}
-{view === 'templates' && <div className="mt-8"><TemplateSelectionPanel onBack={() => setView('chat')} /></div>}
-{view === 'checklist' && <Checklist />}
+{view === 'job_board' && <JobBoard savedApplications={savedApplications} onBookmark={(job) => { setSavedApplications([...savedApplications, { ...job, status: 'Saved', dateAdded: new Date().toISOString() } as SavedApplication]); trackAction('first_job'); }} />}
+{view === 'application_tracker' && <ApplicationTracker applications={savedApplications} onUpdateStatus={(id, status) => setSavedApplications(savedApplications.map(a => a.id === id ? { ...a, status } : a))} onAddExternal={(app) => { setSavedApplications([...savedApplications, app]); trackAction('first_job'); }} />}
+
+{view === 'checklist' && <Checklist onTaskComplete={() => trackAction('first_task')} />}
 
 </div>
 {view === 'chat' && messages.length > 0 && renderMessageInput()}
 </div>
 {isExpandedViewOpen && (
 <div className="fixed inset-0 z-[120] bg-[#020617] w-full animate-in fade-in duration-300">
-<TemplateSelectionPanel onBack={() => setIsExpandedViewOpen(false)} />
+<TemplateSelectionPanel />
 </div>
 )}
 </div>

@@ -13,7 +13,7 @@ const INITIAL_TASKS: Task[] = [
   { id: '3', title: 'Apply to 5 jobs on LinkedIn', status: 'done', date: new Date().toISOString() }
 ];
 
-export const Checklist: React.FC = () => {
+export const Checklist: React.FC<{ onTaskComplete?: () => void }> = ({ onTaskComplete }) => {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'todo' | 'doing' | 'done'>('all');
@@ -46,6 +46,9 @@ export const Checklist: React.FC = () => {
 
   const updateStatus = (id: string, status: 'todo' | 'doing' | 'done') => {
     setTasks(tasks.map(t => t.id === id ? { ...t, status } : t));
+    if (status === 'done' && onTaskComplete) {
+      onTaskComplete();
+    }
   };
   
   const deleteTask = (id: string) => {
