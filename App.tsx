@@ -366,15 +366,50 @@ useEffect(() => {
   supabase.auth.getSession().then(({ data: { session } }) => {
     setUser(session?.user ?? null);
     setIsAuthenticated(!!session?.user);
+    if (session?.user) {
+      loadChats(session.user.id);
+    }
   });
 
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     setUser(session?.user ?? null);
     setIsAuthenticated(!!session?.user);
+    if (session?.user) {
+      loadChats(session.user.id);
+    } else {
+      setChats([]);
+    }
   });
 
   return () => subscription.unsubscribe();
 }, []);
+
+const loadChats = async (userId: string) => {
+  const { data: chatData, error: chatError } = await supabase
+    .from('chats')
+    .select('*, messages(*)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (chatError) {
+    console.error('Error loading chats:', chatError);
+    return;
+  }
+
+  setChats(chatData.map(chat => ({
+    id: chat.id,
+    title: chat.title,
+    messages: chat.messages.map(msg => ({
+      role: msg.role as 'user' | 'ai',
+      text: msg.text,
+      files: msg.files,
+      // For hasResume and hasCL, we might need a better way to store them.
+      // Currently, they are not in the messages table, so we'll leave as undefined for now.
+    })),
+    resumeData: chat.resume_data,
+    clData: chat.cl_data
+  })));
+};
 
 const trackAction = async (action: string) => {
   if (!user) return;
@@ -469,10 +504,12 @@ return next;
 };
 
 const handleSend = async () => {
-if ((!input.trim() && selectedFiles.length === 0) || isTyping || loadingFileNames.size > 0) return;
+if ((!input.trim() && selectedFiles.length === 0) || isTyping || loadingFileNames.size > 0 || !user) return;
 const userText = input;
 const fileInfos: FileInfo[] = selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size }));
 let activeId = currentChatId;
+const isNewChat = !activeId;
+
 if (!activeId) {
 activeId = Date.now().toString();
 const newChat: ChatSession = {
@@ -484,11 +521,31 @@ clData: INITIAL_CL
 };
 setChats(prev => [newChat, ...prev]);
 setCurrentChatId(activeId);
+
+// Save to Supabase
+await supabase.from('chats').insert({
+id: activeId,
+user_id: user.id,
+title: newChat.title,
+resume_data: newChat.resumeData,
+cl_data: newChat.clData
+});
 }
+
+// Add User Message
+const newUserMessage = { role: 'user' as const, text: userText, files: fileInfos };
 setChats(prev => prev.map(c => c.id === activeId ? {
 ...c,
-messages: [...c.messages, { role: 'user', text: userText, files: fileInfos }]
+messages: [...c.messages, newUserMessage]
 } : c));
+
+await supabase.from('messages').insert({
+chat_id: activeId,
+role: 'user',
+text: userText,
+files: fileInfos
+});
+
 setInput('');
 const filesToProcess = [...selectedFiles];
 setSelectedFiles([]);
@@ -496,39 +553,54 @@ setIsTyping(true);
 try {
 const parts = await Promise.all(filesToProcess.map(fileToPart));
 const result = await generateTailoredContent(userText, parts, resumeData, clData);
-const inputChars = userText.length + parts.reduce((acc, p: any) => acc + (p.text?.length || 0), 0);
-const outputChars = result.explanation.length + JSON.stringify(result.resume || {}).length + JSON.stringify(result.cl || {}).length;
-const creditCost = (inputChars + outputChars) / 4000;
+const creditCost = (userText.length + (result.explanation?.length || 0)) / 4000;
 setCredits(prev => Math.max(0, prev - creditCost));
+
+const newResume = result.resume || resumeData;
+const newCL = result.cl || clData;
+
+// Update chat in local state
 setChats(prev => prev.map(c => {
 if (c.id === activeId) {
-const hasResume = !!result.resume && JSON.stringify(result.resume) !== JSON.stringify(c.resumeData);
-const hasCL = !!result.cl && JSON.stringify(result.cl) !== JSON.stringify(c.clData);
 let newTitle = c.title;
-if (c.messages.length <= 2 && result.resume?.name) {
+if (c.messages.length <= 1 && result.resume?.name) { // Updated check
 newTitle = `${result.resume.name}'s Resume`;
 }
 return {
 ...c,
 title: newTitle,
-resumeData: result.resume || c.resumeData,
-clData: result.cl || c.clData,
-messages: [...c.messages, { 
-role: 'ai', 
-text: result.explanation || "Updates applied successfully.",
-hasResume,
-hasCL
-}]
+resumeData: newResume,
+clData: newCL,
+messages: [...c.messages, { role: 'ai', text: result.explanation || "Updates applied successfully." }]
 };
 }
 return c;
 }));
+
+// Update Supabase
+await supabase.from('chats').update({
+  title: chats.find(c => c.id === activeId)?.title || "New Resume Chat", // This might be stale
+  resume_data: newResume,
+  cl_data: newCL
+}).eq('id', activeId);
+
+await supabase.from('messages').insert({
+chat_id: activeId,
+role: 'ai',
+text: result.explanation || "Updates applied successfully."
+});
+
 } catch (error) {
 console.error(error);
 setChats(prev => prev.map(c => c.id === activeId ? {
 ...c,
 messages: [...c.messages, { role: 'ai', text: "Oops! We hit a snag while processing your request. Please check your file and try sending that again." }]
 } : c));
+await supabase.from('messages').insert({
+chat_id: activeId,
+role: 'ai',
+text: "Oops! We hit a snag while processing your request. Please check your file and try sending that again."
+});
 } finally {
 setIsTyping(false);
 }
@@ -561,15 +633,17 @@ setSelectedFiles(prev => [...prev, ...droppedFiles]);
 }
 };
 
-const deleteChat = (id: string) => {
+const deleteChat = async (id: string) => {
 setChats(prev => prev.filter(c => c.id !== id));
 if (currentChatId === id) setCurrentChatId(null);
 setConfirmDeleteId(null);
+await supabase.from('chats').delete().eq('id', id);
 };
 
-const renameChat = (id: string) => {
+const renameChat = async (id: string) => {
 setChats(prev => prev.map(c => c.id === id ? { ...c, title: renameValue } : c));
 setRenameId(null);
+await supabase.from('chats').update({ title: renameValue }).eq('id', id);
 };
 
 const getFullResumeText = (data: ResumeData) => {
