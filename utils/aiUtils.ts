@@ -81,64 +81,40 @@ export const generateTailoredContent = async (
   currentResume: ResumeData, 
   currentCL: CoverLetterData
 ): Promise<{ resume?: ResumeData; cl?: CoverLetterData; explanation: string }> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const userPrompt = `System Directive: You are an interactive executive career agent named Zysculpt.
-    
-    TONE & STYLE PROTOCOL:
-    - Use layman-friendly, supportive, and professional language. Avoid overly complex jargon.
-    - Be encouraging and clear in your explanations.
-    - Always refer to yourself as Zysculpt.
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not defined");
+  
+  const ai = new GoogleGenAI({ apiKey });
+  const modelId = "gemini-3-flash-preview"; 
 
-    RELEVANCE & INTELLIGENCE PROTOCOL:
-    - If the user provides a greeting (e.g. "hi", "hello"), social banter, or files clearly unrelated to career documents (e.g. shipping labels, recipes, receipts, snapshots), respond ONLY via the "explanation" field.
-    - OMIT the "resume" and "cl" keys from your JSON response entirely if the input is not professional/career-related or if no meaningful career data can be derived.
-    - DO NOT force data into resume fields if the source document is irrelevant. Explicitly mention the document type in your explanation and politely ask for a valid resume or career-related information.
-    - Only return the "resume" or "cl" objects when you identify valid professional data or have been specifically asked to generate/refine them.
+  const unifiedPrompt = `System Directive: You are ZYSCULPT, an elite executive career strategist.
+    Current Resume: ${JSON.stringify(currentResume)}
+    Current Cover Letter: ${JSON.stringify(currentCL)}
+    USER COMMAND: "${prompt}"
 
-    CRITICAL MULTI-MODAL PROTOCOL: 
-    - You MUST scan and analyze the entirety of provided document parts (PDF, DOCX, Images) using your vision and document-understanding capabilities. 
-    - DO NOT ask the user for raw text if you have these file parts; you can process them directly.
-    - EXTRACT AND POPULATE: Full Name, Email, Phone, LinkedIn, Website, Professional Summary, Work Experience, Education, and Skills/Certifications from the binary/image content provided.
-    - NO HALLUCINATIONS: If information is truly missing after thorough file analysis, leave fields as empty string ("") or empty array [].
-    
-    Current Document State:
-    - Resume: ${JSON.stringify(currentResume)}
-    - Cover Letter: ${JSON.stringify(currentCL)}
-    
-    User Command:
-    "${prompt}"
-    
-    Task:
-    1. Tailor professional content STRICTLY based on the COMMAND and ATTACHED FILES.
-    2. Return valid JSON containing "resume" (optional), "cl" (optional), and "explanation" (required).`;
-
+    TASK:
+    1. Analyze the user command and any provided files.
+    2. Provide a supportive, brief conversational explanation of your actions as "explanation".
+    3. Update the "resume" and "cl" objects only if the user command or files necessitate changes. If no changes are needed for a specific document, return the current version of that document in the JSON.
+    4. Return EVERYTHING in a single valid JSON object.`;
+  
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: { 
-      parts: [
-        { text: userPrompt },
-        ...parts
-      ] 
-    },
+    model: modelId,
+    contents: [{ role: 'user', parts: [{ text: unifiedPrompt }, ...parts] }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
+          explanation: { type: Type.STRING },
           resume: RESUME_SCHEMA,
-          cl: CL_SCHEMA,
-          explanation: { type: Type.STRING, description: "A formatted summary of refinements. Use **bold** for key terms." }
+          cl: CL_SCHEMA
         },
-        required: ["explanation"]
+        required: ["explanation", "resume", "cl"]
       }
     }
   });
 
-  try {
-    const text = response.text || "{}";
-    return JSON.parse(text);
-  } catch (err) {
-    console.error("AI parse error:", err);
-    throw new Error("Invalid format from AI engine");
-  }
+  const data = JSON.parse(response.text || "{}");
+  return data;
 };

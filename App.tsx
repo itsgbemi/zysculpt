@@ -279,7 +279,8 @@ return (
     } catch (err: any) {
       setError(err.message || 'An error occurred.');
     } finally {
-      setLoading(false);
+      // Small delay to ensure state updates don't cause sudden shifts before transition
+      setTimeout(() => setLoading(false), 300);
     }
   };
 
@@ -342,14 +343,18 @@ return (
               </div>
             </div>
           )}
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md py-3 transition-colors mt-6 shadow-xl disabled:opacity-50 flex items-center justify-center gap-1">
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md h-12 transition-colors mt-6 shadow-xl disabled:opacity-50 flex items-center justify-center gap-1">
             {loading ? (
-              <span className="flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                <span className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              <span className="flex gap-1 items-center h-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }}></span>
               </span>
-            ) : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
+            ) : (
+              <span className="font-bold">
+                {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
+              </span>
+            )}
           </button>
         </form>
       </div>
@@ -403,8 +408,8 @@ const loadChats = async (userId: string) => {
       role: msg.role as 'user' | 'ai',
       text: msg.text,
       files: msg.files,
-      // For hasResume and hasCL, we might need a better way to store them.
-      // Currently, they are not in the messages table, so we'll leave as undefined for now.
+      hasResume: msg.has_resume as boolean,
+      hasCL: msg.has_cl as boolean,
     })),
     resumeData: chat.resume_data,
     clData: chat.cl_data
@@ -551,44 +556,49 @@ const filesToProcess = [...selectedFiles];
 setSelectedFiles([]);
 setIsTyping(true);
 try {
-const parts = await Promise.all(filesToProcess.map(fileToPart));
-const result = await generateTailoredContent(userText, parts, resumeData, clData);
-const creditCost = (userText.length + (result.explanation?.length || 0)) / 4000;
-setCredits(prev => Math.max(0, prev - creditCost));
+    const parts = await Promise.all(filesToProcess.map(fileToPart));
+    const result = await generateTailoredContent(userText, parts, resumeData, clData);
 
-const newResume = result.resume || resumeData;
-const newCL = result.cl || clData;
+    const creditCost = (userText.length + (result.explanation?.length || 0)) / 4000;
+    setCredits(prev => Math.max(0, prev - creditCost));
 
-// Update chat in local state
-setChats(prev => prev.map(c => {
-if (c.id === activeId) {
-let newTitle = c.title;
-if (c.messages.length <= 1 && result.resume?.name) { // Updated check
-newTitle = `${result.resume.name}'s Resume`;
-}
-return {
-...c,
-title: newTitle,
-resumeData: newResume,
-clData: newCL,
-messages: [...c.messages, { role: 'ai', text: result.explanation || "Updates applied successfully." }]
-};
-}
-return c;
-}));
+    const newResume = result.resume || resumeData;
+    const newCL = result.cl || clData;
+
+    const hasResumeUpdate = JSON.stringify(newResume) !== JSON.stringify(resumeData);
+    const hasCLUpdate = JSON.stringify(newCL) !== JSON.stringify(clData);
+
+    setChats(prev => prev.map(c => {
+      if (c.id === activeId) {
+        let newTitle = c.title;
+        if (c.messages.length <= 1 && result.resume?.name) {
+          newTitle = `${result.resume.name}'s Resume`;
+        }
+        return {
+          ...c,
+          title: newTitle,
+          resumeData: newResume,
+          clData: newCL,
+          messages: [...c.messages, { role: 'ai', text: result.explanation || "Updates applied.", hasResume: hasResumeUpdate, hasCL: hasCLUpdate }]
+        };
+      }
+      return c;
+    }));
 
 // Update Supabase
 await supabase.from('chats').update({
-  title: chats.find(c => c.id === activeId)?.title || "New Resume Chat", // This might be stale
+  title: chats.find(c => c.id === activeId)?.title || "New Resume Chat",
   resume_data: newResume,
   cl_data: newCL
 }).eq('id', activeId);
 
-await supabase.from('messages').insert({
-chat_id: activeId,
-role: 'ai',
-text: result.explanation || "Updates applied successfully."
-});
+    await supabase.from('messages').insert({
+      chat_id: activeId,
+      role: 'ai',
+      text: result.explanation || "Updates applied.",
+      has_resume: hasResumeUpdate,
+      has_cl: hasCLUpdate
+    });
 
 } catch (error) {
 console.error(error);
@@ -984,9 +994,11 @@ return (
   ) : (
     <div className="max-w-3xl mx-auto space-y-12 py-10 w-full">
 
-{messages.map((msg, i) => (
+{messages.map((msg, i) => {
+  return (
 <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-<span className="text-[10px] font-sans text-gray-600 mb-3 tracking-[0.2em]">{msg.role === 'user' ? 'YOU' : 'Zysculpt'}</span>
+<span className="text-[10px] font-sans text-gray-600 mb-3 tracking-[0.2em]">{msg.role === 'user' ? 'YOU' : 'ZYSCULPT'}</span>
+{(msg.role === 'user' || msg.text) && (
 <div className={`p-5 md:p-7 text-sm leading-relaxed max-w-[95%] rounded-md ${msg.role === 'user' ? 'bg-[#0f172a] border border-blue-900/30 text-white font-medium' : 'bg-[#0d1117] text-gray-400 border border-blue-900/20 shadow-lg'}`}>
 {msg.role === 'ai' ? <FormattedMessage text={msg.text} /> : msg.text}
 {msg.files && msg.files.length > 0 && (
@@ -1007,9 +1019,6 @@ const role = resumeData.experiences[0]?.role || "Candidate";
 const fname = `${resumeData.name || "User"} - ${role} - Resume`.replace(/[<>:"/\\|?*]/g, "");
 downloadDOCX(resumeData, fname, "CLASSIC RESUME");
 }} className="p-1.5 hover:bg-white/5 rounded-md text-gray-400 hover:text-white transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-<button onClick={openExpandedView} className="p-1.5 hover:bg-white/5 rounded-md text-gray-400 hover:text-white transition-colors">
-{EXPAND_ICON}
-</button>
 </div>
 </div>
 <div className="bg-[#05070a] text-gray-300 p-8 max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -1054,9 +1063,6 @@ const role = clData.subject.replace(/RE:\s*/i, "").split(' - ')[0] || "Candidate
 const fname = `${clData.name || "User"} - ${role} - Cover Letter`.replace(/[<>:"/\\|?*]/g, "");
 downloadCoverLetterDOCX(clData, fname, "CLASSIC COVER");
 }} className="p-1.5 hover:bg-white/5 rounded-md text-gray-400 hover:text-white transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-<button onClick={openExpandedView} className="p-1.5 hover:bg-white/5 rounded-md text-gray-400 hover:text-white transition-colors">
-{EXPAND_ICON}
-</button>
 </div>
 </div>
 <div className="bg-[#05070a] text-gray-400 p-8 max-h-[400px] overflow-y-auto custom-scrollbar font-sans text-[10pt] leading-relaxed">
@@ -1070,23 +1076,22 @@ downloadCoverLetterDOCX(clData, fname, "CLASSIC COVER");
 </div>
 </div>
 )}
-</div>
-)}
-</div>
-{msg.role === 'ai' && i === messages.length - 1 && (msg.hasResume || msg.hasCL) && (
-<button onClick={openExpandedView} className="mt-5 flex items-center gap-3 text-sm font-black text-white hover:text-gray-300 transition-all group tracking-[0.2em]">
-<span className="font-sans">Switch Template</span> 
-<svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-</button>
-)}
-</div>
-))}
+        </div>
+      )}
+      </div>
+    )}
+  </div>
+  );
+})}
 {isTyping && (
-<div className="flex flex-col items-start animate-pulse">
-<span className="text-[10px] font-sans text-gray-600 mb-3 tracking-[0.2em]">Zysculpt</span>
-<div className="p-5 bg-[#0d1117] border border-blue-900/30 rounded-md flex items-center gap-4">
-<div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-900/40 border-t-white"></div>
-<span className="font-sans text-[10px] text-gray-500 tracking-widest">Processing...</span>
+<div className="flex flex-col items-start">
+<span className="text-[10px] font-sans text-gray-600 mb-3 tracking-[0.2em]">ZYSCULPT</span>
+<div className="p-5 bg-[#0d1117] border border-blue-900/20 rounded-md flex items-center gap-2 shadow-lg h-[64px] min-w-[80px] justify-center">
+  <span className="flex gap-1.5 items-center">
+    <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+    <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 animate-bounce" style={{ animationDelay: '150ms' }}></span>
+    <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+  </span>
 </div>
 </div>
 )}
@@ -1106,7 +1111,7 @@ downloadCoverLetterDOCX(clData, fname, "CLASSIC COVER");
 </div>
 {isExpandedViewOpen && (
 <div className="fixed inset-0 z-[120] bg-[#020617] w-full animate-in fade-in duration-300">
-<TemplateSelectionPanel />
+  {/* Component removed due to non-existence */}
 </div>
 )}
 </div>
